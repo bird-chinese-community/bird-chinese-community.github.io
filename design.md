@@ -32,7 +32,7 @@ Priority for conflicts: facts and user requirements; accessibility; the reader's
 ### Site header
 
 - [SHOULD] A sticky header, `--cc-header-height` (64px) high, with a hairline bottom border and the page background at 75% opacity with a backdrop blur.
-- [SHOULD] Left: the mark (28px), the site name in the Card title role, a 16px hairline divider and the byline in muted 14px text. The group is one link to the docs home of the current language.
+- [SHOULD] Left: the mark (28px), the site name in the Card title role, a 16px hairline divider and the byline in muted 14px text. The group is one link to the docs home of the current language. Below 768px the divider and the byline are not shown; the byline stays in the accessible name of the link.
 - [SHOULD] Right: the GitHub link (icon only below 640px), the language menu and the theme menu as icon buttons.
 - [SHOULD] The header content and the docs layout share one 1280px frame (`--fd-layout-width`) centered in the viewport.
 
@@ -58,7 +58,7 @@ Priority for conflicts: facts and user requirements; accessibility; the reader's
 
 ### Link preview image
 
-- [SHOULD] 1200 × 630, dark: a 160° gradient from `#121b1c` to `#0a0f10`. Top row: the mark (48px, 11px radius), the site name (30px, 700) and the byline (24px, muted `#a2b2b1`); the host on the right. The section line in the brand teal `#5cc6b0` (24px), the title (68px, 700, two lines at most) and the description (30px, muted, two lines at most) sit in the vertical center.
+- [SHOULD] 1200 × 630, dark: a 160° gradient from `#121b1c` to `#0a0f10`. Top row: the mark (48px, 11px radius), the site name (30px, 700) and the byline (24px, muted `#a2b2b1`). The host (22px, muted) sits at the bottom left. The section line in the brand teal `#5cc6b0` (24px), the title (68px, 700, two lines at most) and the description (30px, muted, two lines at most) sit in the vertical center.
 - [SHOULD] The bird of the BIRD file icon fills the lower right corner at 5% white as a background figure.
 
 ## 4. Visual rules

@@ -1,5 +1,5 @@
 {
-  "byline": "文档",
+  "byline": "使用手册 & 技术文档 (Developer Preview)",
   "description": "BIRD 2 与 BIRD 3 配置文件的编辑器支持、语言服务器、Linter、格式化工具和 CI 工具。",
   "repository": "GitHub 组织：bird-chinese-community",
   "language": "语言",

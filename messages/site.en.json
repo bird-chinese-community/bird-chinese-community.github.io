@@ -1,5 +1,5 @@
 {
-  "byline": "Docs",
+  "byline": "User Guide & Technical Reference (Developer Preview)",
   "description": "Editor support, a language server, a linter, a formatter and CI tools for BIRD 2 and BIRD 3 configuration files.",
   "repository": "GitHub organization: bird-chinese-community",
   "language": "Language",

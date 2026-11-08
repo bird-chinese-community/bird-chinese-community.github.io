@@ -1,6 +1,6 @@
 # bird-chinese-community.github.io
 
-Source of the BIRDCC documentation site at <https://bird-chinese-community.github.io>. The site documents the BIRD Chinese Community tools for BIRD 2 and BIRD 3 configuration files: the editor extensions, the `birdcc` CLI, the language server, the linter, the formatter and the `setup-birdcc` GitHub Action.
+Source of the BIRDCC User Guide & Technical Reference (Developer Preview) at <https://bird-chinese-community.github.io>. The site documents the BIRD Chinese Community tools for BIRD 2 and BIRD 3 configuration files: the editor extensions, the `birdcc` CLI, the language server, the linter, the formatter and the `setup-birdcc` GitHub Action.
 
 The site is a static export of Next.js with [Fumadocs](https://fumadocs.dev). Pages are in English and Simplified Chinese.
 

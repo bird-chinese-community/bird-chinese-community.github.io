@@ -70,20 +70,10 @@ export function OgImage(page: OgPage) {
       }}
     >
       <Figure />
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "56px 64px 0",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <img src={OG_MARK_SRC} width={48} height={48} style={{ borderRadius: 11 }} />
-          <span style={{ fontSize: 30, fontWeight: 700 }}>{page.siteName}</span>
-          <span style={{ fontSize: 24, color: ogPalette.muted }}>{page.byline}</span>
-        </div>
-        <span style={{ fontSize: 22, color: ogPalette.muted }}>{page.host}</span>
+      <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "56px 64px 0" }}>
+        <img src={OG_MARK_SRC} width={48} height={48} style={{ borderRadius: 11 }} />
+        <span style={{ fontSize: 30, fontWeight: 700 }}>{page.siteName}</span>
+        <span style={{ fontSize: 24, color: ogPalette.muted }}>{page.byline}</span>
       </div>
       <div
         style={{
@@ -92,7 +82,7 @@ export function OgImage(page: OgPage) {
           justifyContent: "center",
           flexGrow: 1,
           gap: 20,
-          padding: "0 64px 64px",
+          padding: "0 64px 24px",
           maxWidth: 1000,
         }}
       >
@@ -125,6 +115,11 @@ export function OgImage(page: OgPage) {
             {page.description}
           </span>
         )}
+      </div>
+      <div
+        style={{ display: "flex", padding: "0 64px 56px", fontSize: 22, color: ogPalette.muted }}
+      >
+        {page.host}
       </div>
     </div>
   );
