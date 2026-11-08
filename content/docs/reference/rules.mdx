@@ -101,8 +101,18 @@ The linter reports the diagnostics of `@birdcc/parser` and `@birdcc/core` under 
 The linter gives each file a role from its path and content. The role decides which rules apply.
 
 - `bird.conf`, `bird2.conf` and `bird3.conf` are entry files. A file with a `router id` or `include` declaration is also an entry file, unless its directory marks it as a fragment or a library.
-- Other files become fragments or libraries. The linter uses directory and file name markers (such as `peers`, `upstream`, `filters` and `lib`), checks whether the directory of the file or a parent directory holds an entry file, and checks whether the file declares named protocols. A file that none of these checks classifies is an entry file.
-- For fragments and libraries, the linter drops `sym/undefined`, `sym/function-required`, `sym/filter-required`, `sym/table-required`, `cfg/no-protocol` and `cfg/missing-router-id`, because the definitions that these rules need are in other files.
+- Other files become fragments or libraries. The linter classifies them with these checks:
+  - Directory and file name markers, such as `peers`, `upstream`, `filters` and `lib`
+  - Whether the directory of the file or a parent directory holds an entry file
+  - Whether the file declares named protocols
+- A file that none of these checks classifies is an entry file.
+- For fragments and libraries, the linter drops the following rules, because the definitions that these rules need are in other files:
+  - `sym/undefined`
+  - `sym/function-required`
+  - `sym/filter-required`
+  - `sym/table-required`
+  - `cfg/no-protocol`
+  - `cfg/missing-router-id`
 - In cross-file analysis, the linter also drops `cfg/no-protocol` and `cfg/missing-router-id` for every file except the entry file.
 
 ## Change severities [#severity]
@@ -126,7 +136,11 @@ The linter gives each file a role from its path and content. The role decides wh
 - The values are `error`, `warning`, `info` and `off`. `off` removes the diagnostic.
 - `"linter": { "enabled": false }` removes all diagnostics of the static analysis.
 
-In this example, every `cfg` rule reports `error`, `cfg/syntax-error` reports nothing, and `sym/filter-required` reports `info`.
+In this example:
+
+- Every `cfg` rule reports `error`.
+- `cfg/syntax-error` reports nothing.
+- `sym/filter-required` reports `info`.
 
 To make `birdcc lint` fail on every finding of the `sym`, `cfg`, `net` and `type` groups, set them to `error`:
 

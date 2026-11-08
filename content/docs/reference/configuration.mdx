@@ -4,7 +4,9 @@ description: Every key of bird.config.json in BIRD-LSP 1.0.0, with its type, def
 icon: Settings
 ---
 
-`bird.config.json` configures `birdcc` and the language server. `birdcc.config.json` is an alias with the same format. [Project configuration](../project-configuration.mdx) describes where the tools look for the file and how they use the entry file and the include search paths.
+`bird.config.json` configures `birdcc` and the language server. `birdcc.config.json` is an alias with the same format.
+
+[Project configuration](../project-configuration.mdx) describes where the tools look for the file and how they use the entry file and the include search paths.
 
 | Key                              | Type     | Default | Read by                                                  |
 | -------------------------------- | -------- | ------- | -------------------------------------------------------- |
@@ -24,7 +26,7 @@ birdcc and the language server parse the file with `JSON.parse` and then check i
 
 - A value of the wrong type or outside its range is an error.
 - An unknown key inside `crossFile`, `linter`, `formatter`, `bird` or a `roles` item is an error.
-- An unknown top-level key is accepted and ignored. The JSON Schema does not allow unknown top-level keys, so an editor that validates against the schema marks them.
+- birdcc and the language server accept and ignore an unknown top-level key. The JSON Schema does not allow unknown top-level keys, so an editor that validates against the schema marks them.
 
 The error message names the file and each problem:
 
@@ -32,7 +34,12 @@ The error message names the file and each problem:
 Invalid BIRD project config at /srv/bird/bird.config.json: crossFile.maxDepth: Too small: expected number to be >=1; crossFile: Unrecognized key: "follow"
 ```
 
-A JSON syntax error gives `Invalid BIRD project config at <path>: JSON parse failed: <message>`. `birdcc lint` and `birdcc fmt` print the message and exit with status 1. The language server publishes it as a [`config/invalid` diagnostic](./language-server.mdx#diagnostics) on the configuration file.
+A JSON syntax error gives `Invalid BIRD project config at <path>: JSON parse failed: <message>`.
+
+For an invalid configuration file:
+
+- `birdcc lint` and `birdcc fmt` print the message and exit with status 1.
+- The language server publishes the message as a [`config/invalid` diagnostic](./language-server.mdx#diagnostics) on the configuration file.
 
 ## $schema [#schema]
 
@@ -60,7 +67,7 @@ Path of the entry file, relative to the configuration file or absolute.
 
 - `birdcc lint` and `birdcc fmt` without a file argument use this file. Without `main`, they use `bird.conf` in the directory of the configuration file. When the file does not exist, both commands fail.
 - The language server uses this file as the entry for every document below the configuration file. When the file does not exist, each document is its own entry.
-- `main` is ignored when `workspaces` is set.
+- birdcc and the language server ignore `main` when `workspaces` is set.
 
 ## workspaces [#workspaces]
 
@@ -86,7 +93,11 @@ Patterns of workspace directories, relative to the configuration file. The entry
 | `["pop-*/**"]`                     | Directories at any depth below each `pop-*` directory, not `pop-*`    |
 | `["routers/eu-*", "routers/us-*"]` | Directories in `routers/` whose names start with `eu-` or `us-`       |
 
-- `birdcc lint` without a file argument lints the `bird.conf` of every matched directory. It skips matched directories without `bird.conf`, hidden directories, symbolic links, and the directories `node_modules`, `dist`, `build`, `target` and `coverage`.
+- `birdcc lint` without a file argument lints the `bird.conf` of every matched directory. It skips these directories:
+  - Matched directories without `bird.conf`
+  - Hidden directories
+  - Symbolic links
+  - `node_modules`, `dist`, `build`, `target` and `coverage`
 - `birdcc fmt` without a file argument fails when `workspaces` is set.
 - The language server uses the `bird.conf` of the deepest matched directory that contains the document. When no pattern matches, it uses the `bird.conf` in the directory of the document.
 - The matched directory is the workspace root for [includes outside the workspace root](../project-configuration.mdx#external-includes).
@@ -111,14 +122,14 @@ A directory outside the workspace root also needs `crossFile.externalIncludes` s
 
 Settings of the cross-file analysis, which follows `include` statements from the entry file.
 
-| Key                | Type    | Default             | Range                 | Description                                                                                                                                   |
-| ------------------ | ------- | ------------------- | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| `enabled`          | boolean | `true`              |                       | `false` makes `birdcc lint` lint each file on its own, as `--no-cross-file` does. The language server then analyzes each document on its own. |
-| `maxDepth`         | integer | `16`                | 1 to 64               | Maximum nesting depth of `include` statements. Deeper includes are skipped and reported as `sym/undefined`.                                   |
-| `maxFiles`         | integer | `256`               | 1 to 1024             | Maximum number of files in one include graph.                                                                                                 |
-| `maxDocumentBytes` | integer | `2097152` (2 MiB)   | 1 to 9007199254740991 | Maximum UTF-8 size of one file. This limit also applies when cross-file analysis is off.                                                      |
-| `maxTotalBytes`    | integer | `16777216` (16 MiB) | 1 to 9007199254740991 | Maximum UTF-8 size of all files in one include graph. The entry file must also fit this limit.                                                |
-| `externalIncludes` | boolean | `false`             |                       | `true` allows include targets outside the workspace root. With `false`, such targets are skipped and reported as `sym/undefined`.             |
+| Key                | Type    | Default             | Range                 | Description                                                                                                                                                  |
+| ------------------ | ------- | ------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `enabled`          | boolean | `true`              |                       | `false` makes `birdcc lint` lint each file on its own, as `--no-cross-file` does. The language server then analyzes each document on its own.                |
+| `maxDepth`         | integer | `16`                | 1 to 64               | Maximum nesting depth of `include` statements. birdcc and the language server skip deeper includes and report them as `sym/undefined`.                       |
+| `maxFiles`         | integer | `256`               | 1 to 1024             | Maximum number of files in one include graph.                                                                                                                |
+| `maxDocumentBytes` | integer | `2097152` (2 MiB)   | 1 to 9007199254740991 | Maximum UTF-8 size of one file. This limit also applies when cross-file analysis is off.                                                                     |
+| `maxTotalBytes`    | integer | `16777216` (16 MiB) | 1 to 9007199254740991 | Maximum UTF-8 size of all files in one include graph. The entry file must also fit this limit.                                                               |
+| `externalIncludes` | boolean | `false`             |                       | `true` allows include targets outside the workspace root. With `false`, birdcc and the language server skip such targets and report them as `sym/undefined`. |
 
 ```json title="bird.config.json"
 {
@@ -131,8 +142,9 @@ Settings of the cross-file analysis, which follows `include` statements from the
 ```
 
 - `birdcc lint --include-max-depth <n>` and `--include-max-files <n>` override `maxDepth` and `maxFiles` for one run.
-- `birdcc lint` fails with status 1 when the linted file exceeds `maxDocumentBytes` or `maxTotalBytes`. An included file over a limit is skipped and reported.
-- The language server reports a document over the size limit with `analysis/size-limit`. When `maxDocumentBytes` is not set, its setting `performance.maxFileSizeBytes` gives the document limit. When both are set, the smaller value applies. See [Language server limits](./language-server.mdx#limits).
+- `birdcc lint` fails with status 1 when the linted file exceeds `maxDocumentBytes` or `maxTotalBytes`. birdcc skips an included file over a limit and reports it.
+- The language server reports a document over the size limit with `analysis/size-limit`. See [Language server limits](./language-server.mdx#limits).
+- When `maxDocumentBytes` is not set, the language server setting `performance.maxFileSizeBytes` gives the document limit. When both are set, the smaller value applies.
 
 ## linter [#linter]
 
@@ -186,8 +198,8 @@ Settings of `birdcc fmt` and of formatting in the language server.
 }
 ```
 
-- When `engine` is not set and the `dprint` engine fails, the formatter uses the `builtin` engine. When `engine` is set, the failure is reported.
-- With `safeMode`, a file with syntax errors is formatted when the output has the same errors.
+- When `engine` is not set and the `dprint` engine fails, the formatter uses the `builtin` engine. When `engine` is set, the formatter reports the failure.
+- With `safeMode`, the formatter formats a file with syntax errors when the output has the same errors.
 - `birdcc fmt --engine` overrides `engine` for one run.
 - In the language server, these keys override the editor settings, which override the `tabSize` and `insertSpaces` options of the formatting request.
 
@@ -197,7 +209,7 @@ Settings of BIRD validation in `birdcc lint --bird`. The language server does no
 
 | Key               | Type   | Default               | Description                                                                              |
 | ----------------- | ------ | --------------------- | ---------------------------------------------------------------------------------------- |
-| `validateCommand` | string | `"bird -p -c {file}"` | Command template. `{file}` is replaced with the absolute path of the linted file.        |
+| `validateCommand` | string | `"bird -p -c {file}"` | Command template. birdcc replaces `{file}` with the absolute path of the linted file.    |
 | `binaryPath`      | string | none                  | BIRD binary. When `validateCommand` is not set, birdcc runs `<binaryPath> -p -c {file}`. |
 | `version`         | string | none                  | Accepted, but not read.                                                                  |
 | `socketPath`      | string | none                  | Accepted, but not read.                                                                  |
@@ -210,10 +222,15 @@ Settings of BIRD validation in `birdcc lint --bird`. The language server does no
 }
 ```
 
-- birdcc takes the command from the first of: `--validate-command`, `bird.validateCommand`, `bird.binaryPath`, the `BIRD_BIN` environment variable, `bird` in `PATH`.
-- The command runs without a shell, in the directory of the linted file, with a 10-second timeout. When the template has no `{file}`, birdcc appends the path.
+- birdcc takes the command from the first available source in this order:
+  1. `--validate-command`
+  2. `bird.validateCommand`
+  3. `bird.binaryPath`
+  4. The `BIRD_BIN` environment variable
+  5. `bird` in `PATH`
+- birdcc runs the command without a shell, in the directory of the linted file, with a 10-second timeout. When the template has no `{file}`, birdcc appends the path.
 - The path is a path on the local file system. A command that runs BIRD in a container or on another host needs the file at the same path there.
-- Values are used as written. birdcc does not expand environment variables in them. For a binary path that differs between machines, leave `binaryPath` and `validateCommand` unset and set `BIRD_BIN`.
+- birdcc uses the values as written and does not expand environment variables in them. For a binary path that differs between machines, leave `binaryPath` and `validateCommand` unset and set `BIRD_BIN`.
 
 [BIRD validation](./cli.mdx#bird-validation) in the CLI reference describes the parsing of the command output.
 

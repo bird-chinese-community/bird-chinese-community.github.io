@@ -63,21 +63,38 @@ birdcc lint [file] [options]
 - The output contains the diagnostics of that include graph. When the detected entry file does not include the file, the output contains no diagnostics for the file. Use `--no-cross-file` to lint such a file on its own.
 - An `include` path resolves relative to the including file first. Then birdcc tries the detected project directory and the directory of the entry file, followed by each `includePaths` entry. When the linted file contains an `include`, birdcc tries only the directory of that file before `includePaths`.
 - birdcc skips include targets outside the workspace root and reports them as `sym/undefined`, unless `crossFile.externalIncludes` is `true`. The workspace root is the directory of the linted file when the file contains an `include` or when detection finds no entry file. In all other cases, it is the detected project directory.
-- The include graph has these default limits: 16 levels, 256 files, 2 MiB for each file and 16 MiB in total. birdcc skips an include over a limit and reports it as `sym/undefined`. A target file over the size limit makes the command fail.
+- The include graph has these default limits:
+  - 16 levels
+  - 256 files
+  - 2 MiB for each file
+  - 16 MiB in total
+- birdcc skips an include over a limit and reports it as `sym/undefined`. A target file over the size limit makes the command fail.
 
 ### Text output
 
-Each diagnostic is one line with the severity, the rule code, the file URI, the line and column (both start at 1), and the message. Diagnostics from BIRD validation have no file URI.
+Each diagnostic is one line with these parts:
+
+1. The severity
+2. The rule code
+3. The file URI
+4. The line and column, both starting at 1
+5. The message
+
+Diagnostics from BIRD validation have no file URI.
 
 ```text
 WARNING sym/filter-required [file:///srv/bird/bird.conf] 10:19 Protocol 'upstream' references unknown filter 'peer_in'
 ```
 
-Without diagnostics, the command prints `No problems found during linting`. The `sym`, `cfg`, `net` and `type` rules report `warning` by default, and the `bgp` and `ospf` rules report `info`. See [Lint rules](./rules.mdx).
+Without diagnostics, the command prints `No problems found during linting`.
+
+The `sym`, `cfg`, `net` and `type` rules report `warning` by default, and the `bgp` and `ospf` rules report `info`. See [Lint rules](./rules.mdx).
 
 ### BIRD validation [#bird-validation]
 
-`--bird` runs a validation command after the static analysis and adds its errors to the output. birdcc uses the first command template from this list:
+`--bird` runs a validation command after the static analysis and adds its errors to the output.
+
+birdcc uses the first command template from this list:
 
 1. `--validate-command`
 2. `bird.validateCommand` in `bird.config.json`
@@ -120,8 +137,13 @@ birdcc fmt bird.conf --check
 birdcc fmt bird.conf --write --engine builtin
 ```
 
-- `fmt` formats one file. Without `file`, it uses `main` from the nearest `bird.config.json`, or `bird.conf` when `main` is not set. When the configuration sets `workspaces`, pass a file. A directory argument is an error.
-- The formatting options come from the [`formatter` section](./configuration.mdx#formatter) of `bird.config.json`: `indentSize` (default 2), `lineWidth` (80), `useTabs` (`false`) and `safeMode` (`true`).
+- `fmt` formats one file. A directory argument is an error.
+- Without `file`, `fmt` uses `main` from the nearest `bird.config.json`, or `bird.conf` when `main` is not set. When the configuration sets `workspaces`, pass a file.
+- The formatting options come from the [`formatter` section](./configuration.mdx#formatter) of `bird.config.json`:
+  - `indentSize`, default 2
+  - `lineWidth`, default 80
+  - `useTabs`, default `false`
+  - `safeMode`, default `true`
 - When neither `--engine` nor `formatter.engine` is set and the `dprint` engine fails, birdcc formats with the `builtin` engine. With an explicit engine, birdcc reports the failure.
 - `--write` replaces the file through a temporary file and a rename. It does not touch a file that is already formatted.
 
@@ -158,7 +180,8 @@ birdcc init --dry-run
 birdcc init --write
 ```
 
-- `root` is the current directory by default. Detection scans `.conf` files. It skips hidden directories and `node_modules`, `dist`, `build`, `target`, `vendor`, `coverage`, `__tests__`, `test`, `tests`, `fixtures`, `examples`, `example` and `docs`.
+- `root` is the current directory by default. Detection scans `.conf` files.
+- Detection skips hidden directories and the directories `node_modules`, `dist`, `build`, `target`, `vendor`, `coverage`, `__tests__`, `test`, `tests`, `fixtures`, `examples`, `example` and `docs`.
 - One entry file gives `"main": "./<path>"`. Several independent entry files give `"workspaces": ["<dir>/", ...]`.
 - The file always contains `$schema`. It also contains `formatter.indentSize` (2, 4 or 8) when birdcc detects the indentation in up to 5 entry files.
 - birdcc writes the file when you give `--write` or when stdout is not a terminal (CI jobs, pipes, redirects). In a terminal without `--write`, it prints the detection result and `Run with --write to create bird.config.json`.
@@ -172,7 +195,9 @@ birdcc init --write
 birdcc lsp --stdio
 ```
 
-`birdcc lsp` starts the `@birdcc/lsp` language server on stdin and stdout. `--stdio` is required. Without it, the command prints ``Only `birdcc lsp --stdio` is currently supported`` and exits with status 1. The [language server reference](./language-server.mdx) lists the capabilities and settings.
+`birdcc lsp` starts the `@birdcc/lsp` language server on stdin and stdout. The [language server reference](./language-server.mdx) lists the capabilities and settings.
+
+`--stdio` is required. Without it, the command prints ``Only `birdcc lsp --stdio` is currently supported`` and exits with status 1.
 
 ## Project configuration [#project-configuration]
 
@@ -187,7 +212,9 @@ birdcc reads `bird.config.json`, or its alias `birdcc.config.json`, from the dir
 | `bird.validateCommand`, `bird.binaryPath`           | `lint --bird`.                                                        |
 | `formatter.*`                                       | `fmt`.                                                                |
 
-An unknown key inside `crossFile`, `formatter`, `linter` or `bird` is an error. The command prints `Invalid BIRD project config at <path>: <key>: <message>` and exits with status 1. The [configuration reference](./configuration.mdx) describes every key.
+An unknown key inside `crossFile`, `formatter`, `linter` or `bird` is an error. The command prints `Invalid BIRD project config at <path>: <key>: <message>` and exits with status 1.
+
+The [configuration reference](./configuration.mdx) describes every key.
 
 ## Exit codes [#exit-codes]
 

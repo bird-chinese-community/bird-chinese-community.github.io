@@ -10,12 +10,12 @@ icon: Terminal
 birdcc <command> [options]
 ```
 
-| 命令                 | 说明                                                        |
-| -------------------- | ----------------------------------------------------------- |
-| `birdcc lint [file]` | 检查一份配置及其 include 图。见 [`lint`](#lint)。           |
-| `birdcc fmt [file]`  | 检查或重写单个文件的格式。见 [`fmt`](#fmt)。                |
-| `birdcc init [root]` | 探测入口文件并写出 `bird.config.json`。见 [`init`](#init)。 |
-| `birdcc lsp --stdio` | 在 stdin 与 stdout 上启动语言服务器。见 [`lsp`](#lsp)。     |
+| 命令                 | 说明                                                                      |
+| -------------------- | ------------------------------------------------------------------------- |
+| `birdcc lint [file]` | 检查一份配置及其 include 图 (include graph)。见 [`lint`](#lint)。         |
+| `birdcc fmt [file]`  | 检查或重写单个文件的格式。见 [`fmt`](#fmt)。                              |
+| `birdcc init [root]` | 探测入口文件 (entry file) 并写出 `bird.config.json`。见 [`init`](#init)。 |
+| `birdcc lsp --stdio` | 在 stdin 与 stdout 上启动语言服务器 (language server)。见 [`lsp`](#lsp)。 |
 
 ## 全局选项 [#global-options]
 
@@ -31,7 +31,7 @@ birdcc <command> [options]
 - 未知选项会输出 `CACError` 堆栈并以退出码 1 结束。
 - 未知命令名不输出任何内容，退出码为 0。运行 `birdcc --help` 查看命令列表。
 
-## lint [#lint]
+## 检查配置 (`birdcc lint`) [#lint]
 
 ```sh
 birdcc lint [file] [options]
@@ -56,28 +56,45 @@ birdcc lint [file] [options]
 - 配置设置了 `workspaces` 时，birdcc 检查每个匹配目录中的 `bird.conf`。没有目录匹配时，命令失败。
 - 既没有文件参数也没有配置文件时，命令失败。
 
-### 跨文件分析
+### 跨文件分析 (cross-file analysis)
 
-- 含有 `include` 语句的文件是被分析的 include 图的入口。
+- 含有 `include` 语句的文件是 birdcc 所分析的 include 图的入口。
 - 对其他文件，birdcc 在文件所在目录及最多四层上级目录中探测入口文件，然后分析探测到的入口文件的 include 图；探测不到入口文件时，分析该文件本身的 include 图。
-- 输出包含该 include 图的诊断。探测到的入口文件没有 include 该文件时，输出中没有该文件的诊断。用 `--no-cross-file` 单独检查这类文件。
-- `include` 路径先相对于发起 include 的文件解析。之后 birdcc 依次尝试探测到的项目目录、入口文件所在目录，再尝试每个 `includePaths` 条目。被检查的文件含有 `include` 时，birdcc 在 `includePaths` 之前只尝试该文件所在目录。
-- include 目标位于工作区根目录之外时，birdcc 跳过它并报告为 `sym/undefined`，除非 `crossFile.externalIncludes` 为 `true`。被检查的文件含有 `include` 或探测不到入口文件时，工作区根目录是该文件所在目录；其他情况下是探测到的项目目录。
-- include 图的默认上限：16 层、256 个文件、单个文件 2 MiB、总计 16 MiB。超过上限的 include 会被跳过，并报告为 `sym/undefined`。被检查的文件本身超过大小上限时，命令失败。
+- 输出包含该 include 图的诊断 (diagnostic)。探测到的入口文件没有 include 该文件时，输出中没有该文件的诊断。用 `--no-cross-file` 单独检查这类文件。
+- `include` 路径先相对于发起 include 的文件解析。之后 birdcc 依次尝试探测到的项目目录、入口文件所在目录，再尝试每个 `includePaths` 条目。所检查的文件含有 `include` 时，birdcc 在 `includePaths` 之前只尝试该文件所在目录。
+- include 目标位于工作区根目录 (workspace root) 之外时，birdcc 跳过它并报告为 `sym/undefined`，除非 `crossFile.externalIncludes` 为 `true`。所检查的文件含有 `include` 或探测不到入口文件时，工作区根目录是该文件所在目录；其他情况下是探测到的项目目录。
+- include 图的默认上限如下：
+  - 嵌套 16 层
+  - 256 个文件
+  - 单个文件 2 MiB
+  - 总计 16 MiB
+- birdcc 跳过超过上限的 include，并报告为 `sym/undefined`。所检查的文件本身超过大小上限时，命令失败。
 
 ### 文本输出
 
-每条诊断占一行，依次是级别、规则代码、文件 URI、行号与列号（都从 1 开始）、消息。BIRD 校验产生的诊断没有文件 URI。
+每条诊断占一行，依次包含：
+
+1. 级别 (severity)
+2. 规则代码 (rule code)
+3. 文件 URI
+4. 行号与列号，都从 1 开始
+5. 消息
+
+BIRD 校验产生的诊断没有文件 URI。
 
 ```text
 WARNING sym/filter-required [file:///srv/bird/bird.conf] 10:19 Protocol 'upstream' references unknown filter 'peer_in'
 ```
 
-没有诊断时，命令输出 `No problems found during linting`。`sym`、`cfg`、`net`、`type` 规则默认报告 `warning`，`bgp` 与 `ospf` 规则默认报告 `info`。见 [lint 规则](./rules.mdx)。
+没有诊断时，命令输出 `No problems found during linting`。
+
+`sym`、`cfg`、`net`、`type` 规则默认报告 `warning`，`bgp` 与 `ospf` 规则默认报告 `info`。见 [lint 规则 (lint rules)](./rules.mdx)。
 
 ### BIRD 校验 [#bird-validation]
 
-`--bird` 在静态分析之后运行校验命令，并把它报告的错误加入输出。birdcc 按下列顺序选用第一个可用的命令模板：
+`--bird` 在静态分析 (static analysis) 之后运行校验命令，并把校验命令报告的错误加入输出。
+
+birdcc 按下列顺序选用第一个可用的命令模板：
 
 1. `--validate-command`
 2. `bird.config.json` 中的 `bird.validateCommand`
@@ -91,8 +108,8 @@ birdcc lint bird.conf --bird --validate-command "/usr/sbin/bird -p -c {file}"
 ```
 
 - birdcc 按空白切分模板，单引号与双引号可以把多个词组成一个参数。
-- birdcc 把 `{file}` 替换为被检查文件的绝对路径。模板中没有 `{file}` 时，birdcc 把路径追加到末尾。
-- birdcc 不经过 shell 运行命令，工作目录为被检查文件所在目录，超时时间为 10 秒。
+- birdcc 把 `{file}` 替换为所检查文件的绝对路径。模板中没有 `{file}` 时，birdcc 把路径追加到末尾。
+- birdcc 不经过 shell 运行命令，工作目录为所检查文件所在目录，超时时间为 10 秒。
 - 文件路径包含 `;`、`|`、`&`、`$`、`<`、`>`、反引号或控制字符时，birdcc 不运行命令。
 
 birdcc 把命令写到 stderr 的行转换为诊断：
@@ -102,41 +119,46 @@ birdcc 把命令写到 stderr 的行转换为诊断：
 | `bird/parse-error`  | `error` | 形如 `<file>:<line>:<column> <message>`、`Parse error <file>, line <line>: <message>` 或 `<file>, line <line>:<column> <message>` 的 stderr 行。其他非空 stderr 行也产生这个代码，位置为第 1 行。 |
 | `bird/runner-error` | `error` | 文件路径不安全、模板中的引号没有闭合、命令无法启动或超时，或者命令以非零状态退出且 stderr 没有输出。                                                                                              |
 
-## fmt [#fmt]
+## 格式化文件 (`birdcc fmt`) [#fmt]
 
 ```sh
 birdcc fmt [file] [options]
 ```
 
-| 选项                | 默认值                              | 说明                                                                  |
-| ------------------- | ----------------------------------- | --------------------------------------------------------------------- |
-| `--check`           | 关闭                                | 报告文件是否需要格式化，不修改文件。不传 `--write` 时命令的行为相同。 |
-| `--write`           | 关闭                                | 把格式化结果写回文件。不能与 `--check` 同时使用。                     |
-| `--engine <engine>` | `formatter.engine`，否则为 `dprint` | `dprint` 或 `builtin`，不区分大小写。                                 |
-| `--json`            | 关闭                                | 输出 `{ "changed", "filePath" }`，不输出提示消息。                    |
+| 选项                | 默认值                              | 说明                                                                               |
+| ------------------- | ----------------------------------- | ---------------------------------------------------------------------------------- |
+| `--check`           | 关闭                                | 报告文件是否需要格式化 (formatting)，不修改文件。不传 `--write` 时命令的行为相同。 |
+| `--write`           | 关闭                                | 把格式化结果写回文件。不能与 `--check` 同时使用。                                  |
+| `--engine <engine>` | `formatter.engine`，否则为 `dprint` | `dprint` 或 `builtin`，不区分大小写。                                              |
+| `--json`            | 关闭                                | 输出 `{ "changed", "filePath" }`，不输出提示消息。                                 |
 
 ```sh
 birdcc fmt bird.conf --check
 birdcc fmt bird.conf --write --engine builtin
 ```
 
-- `fmt` 每次格式化一个文件。不传 `file` 时，使用最近的 `bird.config.json` 中的 `main`；没有设置 `main` 时使用 `bird.conf`。配置设置了 `workspaces` 时，必须传入文件。传入目录会报错。
-- 格式化选项来自 `bird.config.json` 的 [`formatter` 部分](./configuration.mdx#formatter)：`indentSize`（默认 2）、`lineWidth`（80）、`useTabs`（`false`）、`safeMode`（`true`）。
+- `fmt` 每次格式化一个文件。传入目录会报错。
+- 不传 `file` 时，`fmt` 使用最近的 `bird.config.json` 中的 `main`；没有设置 `main` 时使用 `bird.conf`。配置设置了 `workspaces` 时，必须传入文件。
+- 格式化选项来自 `bird.config.json` 的 [`formatter` 部分](./configuration.mdx#formatter)：
+  - `indentSize`，默认 2
+  - `lineWidth`，默认 80
+  - `useTabs`，默认 `false`
+  - `safeMode`，默认 `true`
 - `--engine` 与 `formatter.engine` 都没有设置且 `dprint` 引擎失败时，birdcc 改用 `builtin` 引擎格式化。显式指定引擎时，birdcc 报告这次失败。
-- `--write` 先写入临时文件再重命名替换原文件。已经符合格式的文件不会被改动。
+- `--write` 先写入临时文件，再把临时文件重命名为原文件。文件已经符合格式时，birdcc 不改动它。
 
-| 结果                            | 消息                                                                            | 退出码 |
-| ------------------------------- | ------------------------------------------------------------------------------- | ------ |
-| 检查，无需修改                  | `Format check passed — all files look good`（stdout）                           | 0      |
-| 检查，需要修改                  | ``Format check failed. Run `birdcc fmt <file> --write` to fix.``（stderr）      | 1      |
-| `--write`，文件已修改           | `Files formatted successfully`                                                  | 0      |
-| `--write`，无需修改             | `All files are already properly formatted`                                      | 0      |
-| 同时使用 `--check` 与 `--write` | `--check and --write cannot be used together`（stderr）                         | 1      |
-| 未知引擎                        | `Invalid formatter engine: "<engine>" (choose from: dprint, builtin)`（stderr） | 1      |
+| 结果                            | 消息                                                                           | 退出码 |
+| ------------------------------- | ------------------------------------------------------------------------------ | ------ |
+| 检查，无需修改                  | `Format check passed — all files look good` (stdout)                           | 0      |
+| 检查，需要修改                  | ``Format check failed. Run `birdcc fmt <file> --write` to fix.`` (stderr)      | 1      |
+| `--write`，文件已修改           | `Files formatted successfully`                                                 | 0      |
+| `--write`，无需修改             | `All files are already properly formatted`                                     | 0      |
+| 同时使用 `--check` 与 `--write` | `--check and --write cannot be used together` (stderr)                         | 1      |
+| 未知引擎                        | `Invalid formatter engine: "<engine>" (choose from: dprint, builtin)` (stderr) | 1      |
 
-[格式化配置](../formatting.mdx)介绍两个引擎与安全模式。
+[格式化配置](../formatting.mdx)介绍两个引擎与安全模式 (safe mode)。
 
-## init [#init]
+## 初始化配置 (`birdcc init`) [#init]
 
 ```sh
 birdcc init [root] [options]
@@ -158,23 +180,26 @@ birdcc init --dry-run
 birdcc init --write
 ```
 
-- `root` 默认为当前目录。探测扫描 `.conf` 文件，跳过隐藏目录以及 `node_modules`、`dist`、`build`、`target`、`vendor`、`coverage`、`__tests__`、`test`、`tests`、`fixtures`、`examples`、`example`、`docs`。
+- `root` 默认为当前目录。探测扫描 `.conf` 文件。
+- 探测跳过隐藏目录以及 `node_modules`、`dist`、`build`、`target`、`vendor`、`coverage`、`__tests__`、`test`、`tests`、`fixtures`、`examples`、`example`、`docs`。
 - 只有一个入口文件时写出 `"main": "./<path>"`；有多个相互独立的入口文件时写出 `"workspaces": ["<dir>/", ...]`。
 - 文件总是包含 `$schema`。birdcc 在最多 5 个入口文件中探测到缩进时，文件还包含 `formatter.indentSize`（2、4 或 8）。
 - 传入 `--write`，或者 stdout 不是终端（CI 任务、管道、重定向）时，birdcc 写出文件。在终端中不传 `--write` 时，birdcc 输出探测结果和 `Run with --write to create bird.config.json`。
 - 目标文件已存在且设置了 `main` 或 `workspaces` 时，`init` 输出提示并以退出码 0 结束，不进行探测。`--force` 跳过这项检查。这项检查同样适用于 `--dry-run` 与 `--json`。
 
-[入口探测](../project-configuration.mdx#entry-detection)说明 birdcc 如何给候选文件打分。
+[入口探测 (entry detection)](../project-configuration.mdx#entry-detection)说明 birdcc 如何给候选文件打分。
 
-## lsp [#lsp]
+## 启动语言服务器 (`birdcc lsp`) [#lsp]
 
 ```sh
 birdcc lsp --stdio
 ```
 
-`birdcc lsp` 在 stdin 与 stdout 上启动 `@birdcc/lsp` 语言服务器。`--stdio` 是必需的；缺少它时，命令输出 ``Only `birdcc lsp --stdio` is currently supported`` 并以退出码 1 结束。[LSP 用法参考](./language-server.mdx)列出它的功能与设置。
+`birdcc lsp` 在 stdin 与 stdout 上启动 `@birdcc/lsp` 语言服务器。[LSP 用法参考](./language-server.mdx)列出语言服务器的功能与设置。
 
-## 项目配置 [#project-configuration]
+`--stdio` 是必需的。缺少 `--stdio` 时，命令输出 ``Only `birdcc lsp --stdio` is currently supported`` 并以退出码 1 结束。
+
+## 项目配置 (project configuration) [#project-configuration]
 
 birdcc 从目标文件所在目录，或最近的含有配置文件的上级目录读取 `bird.config.json` 或其别名 `birdcc.config.json`，一直查找到文件系统根目录。同一目录中两个文件名都存在时，birdcc 使用 `bird.config.json`。
 
@@ -187,7 +212,9 @@ birdcc 从目标文件所在目录，或最近的含有配置文件的上级目�
 | `bird.validateCommand`、`bird.binaryPath`           | `lint --bird`。                                           |
 | `formatter.*`                                       | `fmt`。                                                   |
 
-`crossFile`、`formatter`、`linter`、`bird` 中的未知键会报错：命令输出 `Invalid BIRD project config at <path>: <key>: <message>` 并以退出码 1 结束。[配置参考](./configuration.mdx)介绍每个键。
+`crossFile`、`formatter`、`linter`、`bird` 中的未知键会报错：命令输出 `Invalid BIRD project config at <path>: <key>: <message>` 并以退出码 1 结束。
+
+[配置参考](./configuration.mdx)介绍每个键。
 
 ## 退出码 [#exit-codes]
 
@@ -200,7 +227,7 @@ birdcc 从目标文件所在目录，或最近的含有配置文件的上级目�
 
 ## JSON 输出 [#json-output]
 
-### lint --format json
+### 检查结果 (`lint --format json`)
 
 `birdcc lint --format json` 与 `birdcc lint --json` 输出一个对象：
 
@@ -251,7 +278,7 @@ birdcc 从目标文件所在目录，或最近的含有配置文件的上级目�
 }
 ```
 
-### fmt --json
+### 格式化结果 (`fmt --json`)
 
 ```json
 {
@@ -262,21 +289,21 @@ birdcc 从目标文件所在目录，或最近的含有配置文件的上级目�
 
 `--debug-json` 加入 `elapsedMs` 与 `engine`。`--engine` 与 `formatter.engine` 都没有设置时，`engine` 为 `"default"`。配置设置了 `indentSize` 与 `lineWidth` 时，也会加入这两个字段。
 
-### init --json
+### 探测结果 (`init --json`)
 
 `birdcc init --json` 输出探测结果：
 
-| 字段         | 类型           | 说明                                                                                                                                                            |
-| ------------ | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `kind`       | string         | `single`、`single-ambiguous`、`monorepo-multi-entry`、`monorepo-multi-role` 或 `not-found`。                                                                    |
-| `confidence` | number         | 0 到 100。                                                                                                                                                      |
-| `primary`    | object 或 null | 排名最高的候选文件。                                                                                                                                            |
-| `candidates` | array          | 每个候选文件包含 `path`、`score`、`signals`（`name`、`delta`）、`role`、`visitedCount`、`missingIncludes`、`qualified`、`declarationKinds`、`includedByCount`。 |
-| `warnings`   | array          | 每条警告包含 `code`、`message` 与可选的 `path`。                                                                                                                |
+| 字段         | 类型           | 说明                                                                                                                                                           |
+| ------------ | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `kind`       | string         | `single`、`single-ambiguous`、`monorepo-multi-entry`、`monorepo-multi-role` 或 `not-found`。                                                                   |
+| `confidence` | number         | 0 到 100。                                                                                                                                                     |
+| `primary`    | object 或 null | 排名最高的候选文件。                                                                                                                                           |
+| `candidates` | array          | 每个候选文件包含 `path`、`score`、`signals` (`name`、`delta`)、`role`、`visitedCount`、`missingIncludes`、`qualified`、`declarationKinds`、`includedByCount`。 |
+| `warnings`   | array          | 每条警告包含 `code`、`message` 与可选的 `path`。                                                                                                               |
 
 `init` 保留已有配置时，输出只有一行：`{"skipped":true,"reason":"Config already exists with entry configuration","configPath":"<path>"}`。
 
-### Schema
+### 类型定义与 schema
 
 `@birdcc/cli` 为这些对象导出类型与 zod 4 schema：
 

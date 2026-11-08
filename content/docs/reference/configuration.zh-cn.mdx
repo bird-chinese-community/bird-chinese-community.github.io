@@ -4,7 +4,9 @@ description: BIRD-LSP 1.0.0 中 bird.config.json 的全部键，包括类型、�
 icon: Settings
 ---
 
-`bird.config.json` 用于配置 `birdcc` 与语言服务器。`birdcc.config.json` 是格式相同的别名。[项目配置](../project-configuration.mdx)说明工具在哪里查找这个文件，以及如何使用入口文件和 include 搜索路径。
+`bird.config.json` 用于配置 `birdcc` 与语言服务器 (language server)。`birdcc.config.json` 是格式相同的别名。
+
+[项目配置 (project configuration)](../project-configuration.mdx)说明工具在哪里查找这个文件，以及如何使用入口文件 (entry file) 和 include 搜索路径 (include search path)。
 
 | 键                               | 类型     | 默认值 | 读取方                                               |
 | -------------------------------- | -------- | ------ | ---------------------------------------------------- |
@@ -14,7 +16,7 @@ icon: Settings
 | [`includePaths`](#include-paths) | string[] | `[]`   | `birdcc lint`、语言服务器                            |
 | [`crossFile`](#cross-file)       | object   | `{}`   | `birdcc lint`、语言服务器                            |
 | [`linter`](#linter)              | object   | `{}`   | `birdcc lint`、语言服务器（`withBird` 除外）         |
-| [`formatter`](#formatter)        | object   | `{}`   | `birdcc fmt`、语言服务器的格式化                     |
+| [`formatter`](#formatter)        | object   | `{}`   | `birdcc fmt`、语言服务器的格式化 (formatting)        |
 | [`bird`](#bird)                  | object   | `{}`   | `birdcc lint --bird`                                 |
 | [`roles`](#roles)                | object[] | 无     | 没有工具读取                                         |
 
@@ -24,7 +26,7 @@ birdcc 与语言服务器用 `JSON.parse` 解析文件，然后检查内容：
 
 - 类型错误或超出范围的值是错误。
 - `crossFile`、`linter`、`formatter`、`bird` 以及 `roles` 各项中的未知键是错误。
-- 顶层的未知键会被接受并忽略。JSON Schema 不允许顶层未知键，所以按 Schema 校验的编辑器会标记它们。
+- birdcc 与语言服务器接受并忽略顶层的未知键。JSON Schema 不允许顶层未知键，所以按 Schema 校验的编辑器会标记它们。
 
 错误消息给出文件路径和每个问题：
 
@@ -32,15 +34,20 @@ birdcc 与语言服务器用 `JSON.parse` 解析文件，然后检查内容：
 Invalid BIRD project config at /srv/bird/bird.config.json: crossFile.maxDepth: Too small: expected number to be >=1; crossFile: Unrecognized key: "follow"
 ```
 
-JSON 语法错误给出 `Invalid BIRD project config at <path>: JSON parse failed: <message>`。`birdcc lint` 与 `birdcc fmt` 输出该消息并以退出码 1 结束。语言服务器在配置文件上把它发布为 [`config/invalid` 诊断](./language-server.mdx#diagnostics)。
+JSON 语法错误给出 `Invalid BIRD project config at <path>: JSON parse failed: <message>`。
 
-## $schema [#schema]
+配置文件无效时：
+
+- `birdcc lint` 与 `birdcc fmt` 输出该消息并以退出码 1 结束。
+- 语言服务器在配置文件上把该消息发布为 [`config/invalid` 诊断 (diagnostic)](./language-server.mdx#diagnostics)。
+
+## Schema 地址 (`$schema`) [#schema]
 
 | 类型   | 默认值 |
 | ------ | ------ |
 | string | 无     |
 
-JSON Schema 的 URL 或路径。编辑器用它为这个文件提供补全和校验。birdcc 与语言服务器不读取它。
+JSON Schema 的 URL 或路径。编辑器用它为这个文件提供补全 (completion) 和校验。birdcc 与语言服务器不读取它。
 
 ```json title="bird.config.json"
 {
@@ -50,7 +57,7 @@ JSON Schema 的 URL 或路径。编辑器用它为这个文件提供补全和校
 
 npm 包中不含 Schema 文件。需要在没有网络的环境中编辑时，把 [`schemas/bird.config.schema.json`](https://github.com/bird-chinese-community/BIRD-LSP/blob/main/schemas/bird.config.schema.json) 保存到配置文件旁边，并设置 `"$schema": "./bird.config.schema.json"`。
 
-## main [#main]
+## 入口文件 (`main`) [#main]
 
 | 类型   | 默认值 |
 | ------ | ------ |
@@ -60,9 +67,9 @@ npm 包中不含 Schema 文件。需要在没有网络的环境中编辑时，�
 
 - 不带文件参数的 `birdcc lint` 与 `birdcc fmt` 使用这个文件。没有 `main` 时，使用配置文件所在目录中的 `bird.conf`。文件不存在时，两个命令都会失败。
 - 语言服务器把这个文件作为配置文件以下所有文档的入口。文件不存在时，每个文档以自身为入口。
-- 设置了 `workspaces` 时忽略 `main`。
+- 设置了 `workspaces` 时，birdcc 与语言服务器忽略 `main`。
 
-## workspaces [#workspaces]
+## 工作区 (`workspaces`) [#workspaces]
 
 | 类型     | 默认值 |
 | -------- | ------ |
@@ -86,12 +93,16 @@ npm 包中不含 Schema 文件。需要在没有网络的环境中编辑时，�
 | `["pop-*/**"]`                     | 每个 `pop-*` 目录下任意深度的目录，不含 `pop-*` 本身 |
 | `["routers/eu-*", "routers/us-*"]` | `routers/` 中名称以 `eu-` 或 `us-` 开头的目录        |
 
-- 不带文件参数的 `birdcc lint` 检查每个匹配目录中的 `bird.conf`。它跳过没有 `bird.conf` 的匹配目录、隐藏目录、符号链接，以及 `node_modules`、`dist`、`build`、`target`、`coverage` 目录。
+- 不带文件参数的 `birdcc lint` 检查每个匹配目录中的 `bird.conf`，并跳过下列目录：
+  - 没有 `bird.conf` 的匹配目录
+  - 隐藏目录
+  - 符号链接
+  - `node_modules`、`dist`、`build`、`target`、`coverage`
 - 设置了 `workspaces` 时，不带文件参数的 `birdcc fmt` 会失败。
 - 语言服务器使用包含该文档的最深一层匹配目录中的 `bird.conf`。没有模式匹配时，使用文档所在目录中的 `bird.conf`。
-- 匹配到的目录就是判断[工作区根目录之外的 include](../project-configuration.mdx#external-includes) 时所用的工作区根目录。
+- 匹配到的目录是工作区根目录 (workspace root)，用于判断[工作区根目录之外的 include](../project-configuration.mdx#external-includes)。
 
-## includePaths [#include-paths]
+## include 搜索路径 (`includePaths`) [#include-paths]
 
 | 类型     | 默认值 |
 | -------- | ------ |
@@ -107,18 +118,18 @@ npm 包中不含 Schema 文件。需要在没有网络的环境中编辑时，�
 
 位于工作区根目录之外的目录还需要把 `crossFile.externalIncludes` 设为 `true`。
 
-## crossFile [#cross-file]
+## 跨文件分析 (`crossFile`) [#cross-file]
 
-跨文件分析的设置。跨文件分析从入口文件开始跟随 `include` 语句。
+跨文件分析 (cross-file analysis) 的设置。跨文件分析从入口文件开始跟随 `include` 语句。
 
-| 键                 | 类型    | 默认值               | 范围                  | 说明                                                                                                    |
-| ------------------ | ------- | -------------------- | --------------------- | ------------------------------------------------------------------------------------------------------- |
-| `enabled`          | boolean | `true`               |                       | 为 `false` 时，`birdcc lint` 像 `--no-cross-file` 一样单独检查每个文件，语言服务器单独分析每个文档。    |
-| `maxDepth`         | integer | `16`                 | 1 到 64               | `include` 语句的最大嵌套深度。更深的 include 被跳过，并以 `sym/undefined` 报告。                        |
-| `maxFiles`         | integer | `256`                | 1 到 1024             | 一个 include 图中的最大文件数。                                                                         |
-| `maxDocumentBytes` | integer | `2097152`（2 MiB）   | 1 到 9007199254740991 | 单个文件的最大 UTF-8 字节数。关闭跨文件分析时这项上限同样生效。                                         |
-| `maxTotalBytes`    | integer | `16777216`（16 MiB） | 1 到 9007199254740991 | 一个 include 图中全部文件的最大 UTF-8 字节数。入口文件本身也必须在这个上限之内。                        |
-| `externalIncludes` | boolean | `false`              |                       | 为 `true` 时允许工作区根目录之外的 include 目标。为 `false` 时跳过这些目标，并以 `sym/undefined` 报告。 |
+| 键                 | 类型    | 默认值              | 范围                  | 说明                                                                                                                      |
+| ------------------ | ------- | ------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `enabled`          | boolean | `true`              |                       | 为 `false` 时，`birdcc lint` 像 `--no-cross-file` 一样单独检查每个文件，语言服务器单独分析每个文档。                      |
+| `maxDepth`         | integer | `16`                | 1 到 64               | `include` 语句的最大嵌套深度。birdcc 与语言服务器跳过更深的 include，并报告 `sym/undefined`。                             |
+| `maxFiles`         | integer | `256`               | 1 到 1024             | 一个 include 图 (include graph) 中的最大文件数。                                                                          |
+| `maxDocumentBytes` | integer | `2097152` (2 MiB)   | 1 到 9007199254740991 | 单个文件的最大 UTF-8 字节数。关闭跨文件分析时这项上限同样生效。                                                           |
+| `maxTotalBytes`    | integer | `16777216` (16 MiB) | 1 到 9007199254740991 | 一个 include 图中全部文件的最大 UTF-8 字节数。入口文件本身也必须在这个上限之内。                                          |
+| `externalIncludes` | boolean | `false`             |                       | 为 `true` 时允许工作区根目录之外的 include 目标。为 `false` 时，birdcc 与语言服务器跳过这些目标，并报告 `sym/undefined`。 |
 
 ```json title="bird.config.json"
 {
@@ -131,19 +142,20 @@ npm 包中不含 Schema 文件。需要在没有网络的环境中编辑时，�
 ```
 
 - `birdcc lint --include-max-depth <n>` 与 `--include-max-files <n>` 在单次运行中覆盖 `maxDepth` 与 `maxFiles`。
-- 被检查文件超过 `maxDocumentBytes` 或 `maxTotalBytes` 时，`birdcc lint` 失败，退出码为 1。超出上限的被 include 文件会被跳过并报告。
-- 语言服务器以 `analysis/size-limit` 报告超出大小上限的文档。没有设置 `maxDocumentBytes` 时，由它的设置 `performance.maxFileSizeBytes` 给出文档上限；两者都设置时取较小值。见[语言服务器上限](./language-server.mdx#limits)。
+- 所检查的文件超过 `maxDocumentBytes` 或 `maxTotalBytes` 时，`birdcc lint` 失败，退出码为 1。birdcc 跳过超出上限的 include 文件并报告。
+- 语言服务器以 `analysis/size-limit` 报告超出大小上限的文档。见[语言服务器上限](./language-server.mdx#limits)。
+- 没有设置 `maxDocumentBytes` 时，语言服务器的设置 `performance.maxFileSizeBytes` 给出文档上限。两者都设置时取较小值。
 
-## linter [#linter]
+## Lint 设置 (`linter`) [#linter]
 
-静态分析的设置。
+静态分析 (static analysis) 的设置。
 
-| 键         | 类型     | 默认值  | 说明                                                                                         |
-| ---------- | -------- | ------- | -------------------------------------------------------------------------------------------- |
-| `enabled`  | boolean  | `true`  | 为 `false` 时，`birdcc lint` 与语言服务器去掉静态分析的全部诊断。                            |
-| `withBird` | boolean  | `false` | 为 `true` 时，`birdcc lint` 像 `--bird` 一样运行 BIRD 校验命令。语言服务器不运行 BIRD 校验。 |
-| `extends`  | string[] | 无      | 接受但不生效。没有可用的预设。                                                               |
-| `rules`    | object   | `{}`    | 为每个规则代码或 `<group>/*` 模式指定级别：`"error"`、`"warning"`、`"info"` 或 `"off"`。     |
+| 键         | 类型     | 默认值  | 说明                                                                                                             |
+| ---------- | -------- | ------- | ---------------------------------------------------------------------------------------------------------------- |
+| `enabled`  | boolean  | `true`  | 为 `false` 时，`birdcc lint` 与语言服务器去掉静态分析的全部诊断。                                                |
+| `withBird` | boolean  | `false` | 为 `true` 时，`birdcc lint` 像 `--bird` 一样运行 BIRD 校验命令。语言服务器不运行 BIRD 校验。                     |
+| `extends`  | string[] | 无      | 接受但不生效。没有可用的预设。                                                                                   |
+| `rules`    | object   | `{}`    | 为每个规则代码 (rule code) 或 `<group>/*` 模式指定级别 (severity)：`"error"`、`"warning"`、`"info"` 或 `"off"`。 |
 
 ```json title="bird.config.json"
 {
@@ -165,17 +177,17 @@ npm 包中不含 Schema 文件。需要在没有网络的环境中编辑时，�
 
 [规则](./rules.mdx#severity)列出规则代码与默认级别。
 
-## formatter [#formatter]
+## 格式化设置 (`formatter`) [#formatter]
 
 `birdcc fmt` 与语言服务器格式化功能的设置。
 
-| 键           | 类型    | 默认值     | 范围       | 说明                                                                                                                 |
-| ------------ | ------- | ---------- | ---------- | -------------------------------------------------------------------------------------------------------------------- |
-| `engine`     | string  | `"dprint"` |            | `"dprint"` 使用 `@birdcc/dprint-plugin-bird` WebAssembly 插件；`"builtin"` 使用 `@birdcc/formatter` 内置的格式化器。 |
-| `indentSize` | integer | `2`        | 1 到 16    | 每级缩进的空格数。                                                                                                   |
-| `useTabs`    | boolean | `false`    |            | 每级缩进使用一个制表符。                                                                                             |
-| `lineWidth`  | integer | `80`       | 20 到 1000 | 行宽。两种引擎都不折行，`builtin` 引擎对更长的行只调整缩进。                                                         |
-| `safeMode`   | boolean | `true`     |            | 输出的声明（不含位置）或解析器错误的代码与消息与输入不同时，拒绝该输出。                                             |
+| 键           | 类型    | 默认值     | 范围       | 说明                                                                                                                             |
+| ------------ | ------- | ---------- | ---------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `engine`     | string  | `"dprint"` |            | `"dprint"` 使用 `@birdcc/dprint-plugin-bird` WebAssembly 插件；`"builtin"` 使用 `@birdcc/formatter` 内置的格式化器 (formatter)。 |
+| `indentSize` | integer | `2`        | 1 到 16    | 每级缩进的空格数。                                                                                                               |
+| `useTabs`    | boolean | `false`    |            | 每级缩进使用一个制表符。                                                                                                         |
+| `lineWidth`  | integer | `80`       | 20 到 1000 | 行宽。两种引擎都不折行，`builtin` 引擎对更长的行只调整缩进。                                                                     |
+| `safeMode`   | boolean | `true`     |            | 输出的声明（不含位置）或解析器错误的代码与消息与输入不同时，拒绝该输出。                                                         |
 
 ```json title="bird.config.json"
 {
@@ -186,18 +198,18 @@ npm 包中不含 Schema 文件。需要在没有网络的环境中编辑时，�
 }
 ```
 
-- 没有设置 `engine` 且 `dprint` 引擎失败时，格式化器改用 `builtin` 引擎。设置了 `engine` 时报告这次失败。
-- 开启 `safeMode` 时，带语法错误的文件只要输出中的错误保持不变，就会被格式化。
+- 没有设置 `engine` 且 `dprint` 引擎失败时，格式化器改用 `builtin` 引擎。设置了 `engine` 时，格式化器报告这次失败。
+- 开启 `safeMode` 时，只要输出中的错误保持不变，格式化器就会格式化带语法错误的文件。
 - `birdcc fmt --engine` 在单次运行中覆盖 `engine`。
 - 在语言服务器中，这些键覆盖编辑器设置，编辑器设置又覆盖格式化请求中的 `tabSize` 与 `insertSpaces` 选项。
 
-## bird [#bird]
+## BIRD 校验设置 (`bird`) [#bird]
 
 `birdcc lint --bird` 中 BIRD 校验的设置。语言服务器不读取这一节。
 
 | 键                | 类型   | 默认值                | 说明                                                                                      |
 | ----------------- | ------ | --------------------- | ----------------------------------------------------------------------------------------- |
-| `validateCommand` | string | `"bird -p -c {file}"` | 命令模板。`{file}` 替换为被检查文件的绝对路径。                                           |
+| `validateCommand` | string | `"bird -p -c {file}"` | 命令模板。birdcc 把 `{file}` 替换为所检查文件的绝对路径。                                 |
 | `binaryPath`      | string | 无                    | BIRD 可执行文件。没有设置 `validateCommand` 时，birdcc 运行 `<binaryPath> -p -c {file}`。 |
 | `version`         | string | 无                    | 接受但不读取。                                                                            |
 | `socketPath`      | string | 无                    | 接受但不读取。                                                                            |
@@ -210,14 +222,19 @@ npm 包中不含 Schema 文件。需要在没有网络的环境中编辑时，�
 }
 ```
 
-- birdcc 按以下顺序取第一个可用的命令：`--validate-command`、`bird.validateCommand`、`bird.binaryPath`、`BIRD_BIN` 环境变量、`PATH` 中的 `bird`。
-- 命令不经过 shell 运行，工作目录为被检查文件所在目录，超时为 10 秒。模板中没有 `{file}` 时，birdcc 把路径追加到末尾。
+- birdcc 按以下顺序取第一个可用的命令：
+  1. `--validate-command`
+  2. `bird.validateCommand`
+  3. `bird.binaryPath`
+  4. `BIRD_BIN` 环境变量
+  5. `PATH` 中的 `bird`
+- birdcc 不经过 shell 运行命令，工作目录为所检查文件所在目录，超时为 10 秒。模板中没有 `{file}` 时，birdcc 把路径追加到末尾。
 - 传入的是本地文件系统上的路径。在容器或其他主机上运行 BIRD 的命令，需要那里的同一路径下也有这个文件。
-- 值按原样使用，birdcc 不展开其中的环境变量。各机器上 BIRD 路径不同时，不设置 `binaryPath` 与 `validateCommand`，改为设置 `BIRD_BIN`。
+- birdcc 按原样使用这些值，不展开其中的环境变量。各机器上 BIRD 路径不同时，不设置 `binaryPath` 与 `validateCommand`，改为设置 `BIRD_BIN`。
 
 CLI 参考中的 [BIRD 校验](./cli.mdx#bird-validation)说明如何解析命令输出。
 
-## roles [#roles]
+## 角色 (`roles`) [#roles]
 
 | 类型     | 默认值 |
 | -------- | ------ |

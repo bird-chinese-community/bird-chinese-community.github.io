@@ -4,7 +4,9 @@ description: "@birdcc/lsp 1.0.0 语言服务器的启动命令、LSP 方法、�
 icon: Server
 ---
 
-`@birdcc/lsp` 是面向 BIRD 2 与 BIRD 3 配置文件的 Language Server Protocol 服务器，通过 stdin 与 stdout 传输 JSON-RPC 消息。VS Code 的 BIRD2 LSP 扩展内置了它，其他编辑器通过 `@birdcc/cli` 的 `birdcc lsp --stdio` 启动它。它需要 Node.js 22 或更新版本。
+`@birdcc/lsp` 是面向 BIRD 2 与 BIRD 3 配置文件的 Language Server Protocol 服务器，通过 stdin 与 stdout 传输 JSON-RPC 消息。
+
+VS Code 的 BIRD2 LSP 扩展 (extension) 内置了 `@birdcc/lsp`，其他编辑器用 `@birdcc/cli` 的 `birdcc lsp --stdio` 启动服务器。服务器需要 Node.js 22 或更新版本。
 
 ## 启动服务器 [#start]
 
@@ -13,7 +15,8 @@ birdcc lsp --stdio
 node node_modules/@birdcc/lsp/dist/server.js --stdio
 ```
 
-- `npm install --global @birdcc/cli` 提供第一条命令，`npm install @birdcc/lsp` 提供第二条命令。第二条命令的路径相对于安装该包的项目；编辑器在其他目录启动服务器时，需要使用绝对路径。
+- `npm install --global @birdcc/cli` 提供第一条命令，`npm install @birdcc/lsp` 提供第二条命令。
+- 第二条命令的路径相对于安装该包的项目。编辑器在其他目录启动服务器时，需要使用绝对路径。
 - `--stdio` 是必需的。
 - 服务器以 `window/logMessage` 通知把日志发送给客户端。
 - 客户端发送 `exit` 或关闭 stdin 时，进程退出。之前收到过 `shutdown` 时退出码为 0，否则为 1。
@@ -42,38 +45,42 @@ node node_modules/@birdcc/lsp/dist/server.js --stdio
 }
 ```
 
-| 方法                                                                             | 行为                                                                                                                                                                                                                                                                                                                                      |
-| -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `textDocument/didOpen`、`textDocument/didChange`、`textDocument/didClose`        | 增量同步（`textDocumentSync: 2`）。打开和修改文档后，在最后一次事件 120 ms 后开始分析。关闭文档时，清除其他打开的入口文件不再需要的诊断。                                                                                                                                                                                                 |
-| `textDocument/publishDiagnostics`                                                | 入口文件 include 图中每个文件的诊断。见[诊断](#diagnostics)。                                                                                                                                                                                                                                                                             |
-| `textDocument/completion`                                                        | 14 个关键字和 4 个代码片段（`include`、`define`、`router id`、`protocol bgp`）。include 图中声明的名称。`import filter` 与 `export filter` 之后的过滤器名，`table` 之后的路由表名，`from` 之后的模板名。在 `include "` 内补全 include 图中已用过的 include 路径。最多 10 个以已输入数字开头、来自 [ASN 数据库](../asn-data.mdx)的 AS 号。 |
-| `textDocument/hover`                                                             | 关键字文档，包括语法、参数和指向 BIRD User's Guide 的链接；声明摘要；AS 号详情：名称、国家和类型。                                                                                                                                                                                                                                        |
-| `textDocument/definition`                                                        | include 图中任意位置同名的 protocol、模板、过滤器、函数、路由表或 `define` 常量的声明。                                                                                                                                                                                                                                                   |
-| `textDocument/references`                                                        | 声明本身，以及引用某个模板的 `from` 子句。不返回过滤器、函数、路由表、protocol 和常量的其他用处。                                                                                                                                                                                                                                         |
-| `textDocument/documentSymbol`                                                    | protocol、模板、过滤器、函数、`define` 常量、路由表、属性、MPLS domain、include、`router id`、`hostname` 与 `graceful restart wait`。                                                                                                                                                                                                     |
-| `textDocument/formatting`                                                        | 用 `@birdcc/formatter` 格式化整个文档，返回一个文本编辑。                                                                                                                                                                                                                                                                                 |
-| `textDocument/inlayHint`                                                         | ASN 数据库中存在的 AS 号之后显示国旗和 AS 号；每个函数名之后显示声明或推断出的返回类型。                                                                                                                                                                                                                                                  |
-| `workspace/configuration`（服务器到客户端）                                      | 客户端支持 `workspace.configuration` 时，为每个文档请求 `bird2-lsp` 节。见[设置](#settings)。                                                                                                                                                                                                                                             |
-| `workspace/didChangeConfiguration`                                               | 用 `settings["bird2-lsp"]` 或 `settings.birdcc` 替换设置，并重新分析打开的文档。客户端支持时，服务器随后发送 `workspace/inlayHint/refresh`。                                                                                                                                                                                              |
-| `client/registerCapability`（服务器到客户端）、`workspace/didChangeWatchedFiles` | 客户端支持动态注册 `workspace/didChangeWatchedFiles` 时，服务器监视每个工作区文件夹中的 `bird.config.json`、`birdcc.config.json`、`*.conf` 与 `*.bird`。文件变化后重新分析受影响的打开文档。                                                                                                                                              |
-| `window/showMessage`（服务器到客户端）                                           | [入口探测通知](#notifications)；`workspace/didChangeConfiguration` 发送的设置值无效时，显示 `Invalid BIRD editor settings: <message>`。                                                                                                                                                                                                   |
-| `window/logMessage`（服务器到客户端）                                            | 日志行，例如 `[intel] ASN database loaded: 122819 records` 与 `[project] using <path> (mode=workspace, entry=<uri>)`。                                                                                                                                                                                                                    |
+| 方法                                                                             | 行为                                                                                                                                                                                                                                                                                                                                                                                                        |
+| -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `textDocument/didOpen`、`textDocument/didChange`、`textDocument/didClose`        | 增量同步 (`textDocumentSync: 2`)。打开和修改文档后，在最后一次事件 120 ms 后开始分析。关闭文档时，清除其他打开的入口文件 (entry file) 不再需要的诊断 (diagnostic)。                                                                                                                                                                                                                                         |
+| `textDocument/publishDiagnostics`                                                | 入口文件 include 图 (include graph) 中每个文件的诊断。见[诊断](#diagnostics)。                                                                                                                                                                                                                                                                                                                              |
+| `textDocument/completion`                                                        | 14 个关键字和 4 个代码片段 (snippet)：`include`、`define`、`router id`、`protocol bgp`。include 图中声明的名称。`import filter` 与 `export filter` 之后的过滤器名 (filter name)，`table` 之后的路由表名 (table name)，`from` 之后的模板名 (template name)。在 `include "` 内补全 include 图中已用过的 include 路径。最多 10 个以已输入数字开头、来自 [ASN 数据库 (ASN database)](../asn-data.mdx)的 AS 号。 |
+| `textDocument/hover`                                                             | 关键字文档，包括语法、参数和指向 BIRD User's Guide 的链接；声明摘要；AS 号详情：名称、国家和类型。                                                                                                                                                                                                                                                                                                          |
+| `textDocument/definition`                                                        | include 图中任意位置同名的 protocol、模板、过滤器、函数、路由表或 `define` 常量的声明。                                                                                                                                                                                                                                                                                                                     |
+| `textDocument/references`                                                        | 声明本身，以及引用某个模板的 `from` 子句。不返回过滤器、函数、路由表、protocol 和常量的其他用处。                                                                                                                                                                                                                                                                                                           |
+| `textDocument/documentSymbol`                                                    | protocol、模板、过滤器、函数、`define` 常量、路由表、属性、MPLS domain、include、`router id`、`hostname` 与 `graceful restart wait`。                                                                                                                                                                                                                                                                       |
+| `textDocument/formatting`                                                        | 用 `@birdcc/formatter` 格式化整个文档，返回一个文本编辑。                                                                                                                                                                                                                                                                                                                                                   |
+| `textDocument/inlayHint`                                                         | ASN 数据库中存在的 AS 号之后显示国旗和 AS 号；每个函数名之后显示声明或推断出的返回类型。                                                                                                                                                                                                                                                                                                                    |
+| `workspace/configuration`（服务器到客户端）                                      | 客户端支持 `workspace.configuration` 时，为每个文档请求 `bird2-lsp` 节。见[设置](#settings)。                                                                                                                                                                                                                                                                                                               |
+| `workspace/didChangeConfiguration`                                               | 用 `settings["bird2-lsp"]` 或 `settings.birdcc` 替换设置，并重新分析打开的文档。客户端支持时，服务器随后发送 `workspace/inlayHint/refresh`。                                                                                                                                                                                                                                                                |
+| `client/registerCapability`（服务器到客户端）、`workspace/didChangeWatchedFiles` | 客户端支持动态注册 (dynamic registration) `workspace/didChangeWatchedFiles` 时，服务器监视每个工作区文件夹 (workspace folder) 中的 `bird.config.json`、`birdcc.config.json`、`*.conf` 与 `*.bird`。文件变化后重新分析受影响的打开文档。                                                                                                                                                                     |
+| `window/showMessage`（服务器到客户端）                                           | [入口探测通知 (entry detection notification)](#notifications)；`workspace/didChangeConfiguration` 发送的设置值无效时，显示 `Invalid BIRD editor settings: <message>`。                                                                                                                                                                                                                                      |
+| `window/logMessage`（服务器到客户端）                                            | 日志行，例如 `[intel] ASN database loaded: 122819 records` 与 `[project] using <path> (mode=workspace, entry=<uri>)`。                                                                                                                                                                                                                                                                                      |
 
 服务器不实现其他请求，例如 `textDocument/rangeFormatting`、`textDocument/rename` 与 `textDocument/codeAction`。
 
 ## 诊断 [#diagnostics]
 
 - 服务器分析每个打开文档的入口文件的 include 图，并为图中每个文件发布诊断。
-- 规则诊断带有 `@birdcc/linter` 的规则代码和级别，并已按项目配置的 `linter.rules` 与 `linter.enabled` 调整。LSP 级别值：`error` 为 1，`warning` 为 2，`info` 为 3。[规则](./rules.mdx)列出各个代码。
+- 规则诊断带有 `@birdcc/linter` 的规则代码 (rule code) 和级别 (severity)，并已按项目配置 (project configuration) 的 `linter.rules` 与 `linter.enabled` 调整。[规则](./rules.mdx)列出各个代码。
+- LSP 级别值如下：
+  - `error`：1
+  - `warning`：2
+  - `info`：3
 - 服务器不运行 `bird -p`。BIRD 校验由 `birdcc lint --bird` 运行。
 
 服务器另外使用三个自己的代码：
 
-| 代码                  | 级别         | 来源            | 消息                                                   | 报告时机                                                                                                         |
-| --------------------- | ------------ | --------------- | ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
-| `analysis/size-limit` | 2（warning） | `birdcc`        | `Document exceeds the analysis size limit (<n> bytes)` | 文档超出大小上限。服务器不分析该文档。诊断位于第一行。见[上限](#limits)。                                        |
-| `config/invalid`      | 1（error）   | `birdcc-config` | `Invalid BIRD project config at <path>: <problems>`    | 项目配置未通过[校验](./configuration.mdx#validation)。诊断位于配置文件上，使用该配置文件的文档不会得到其他诊断。 |
-| `lsp/internal-error`  | 1（error）   | `lsp`           | 异常的消息                                             | 分析该文档时抛出了异常。诊断位于第一行。                                                                         |
+| 代码                  | 级别        | 来源            | 消息                                                   | 报告时机                                                                                                         |
+| --------------------- | ----------- | --------------- | ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| `analysis/size-limit` | 2 (warning) | `birdcc`        | `Document exceeds the analysis size limit (<n> bytes)` | 文档超出大小上限。服务器不分析该文档。诊断位于第一行。见[上限](#limits)。                                        |
+| `config/invalid`      | 1 (error)   | `birdcc-config` | `Invalid BIRD project config at <path>: <problems>`    | 项目配置未通过[校验](./configuration.mdx#validation)。诊断位于配置文件上，使用该配置文件的文档不会得到其他诊断。 |
+| `lsp/internal-error`  | 1 (error)   | `lsp`           | 异常的消息                                             | 分析该文档时抛出了异常。诊断位于第一行。                                                                         |
 
 ## 设置 [#settings]
 
@@ -89,15 +96,15 @@ node node_modules/@birdcc/lsp/dist/server.js --stdio
 | `enabled`                      | boolean | `true`                 | 为 `false` 时停止分析，所有请求都返回空结果。                                        |
 | `performance.maxFileSizeBytes` | integer | 未设置                 | 项目没有设置 `crossFile.maxDocumentBytes` 时作为文档大小上限。两者都设置时取较小值。 |
 | `intel.enabled`                | boolean | `true`                 | 为 `false` 时关闭全部 AS 号功能。                                                    |
-| `intel.hover`                  | boolean | `true`                 | AS 号悬停提示。                                                                      |
-| `intel.completion`             | boolean | `true`                 | AS 号补全。                                                                          |
-| `intel.inlayHints`             | boolean | `true`                 | AS 号内嵌提示。                                                                      |
+| `intel.hover`                  | boolean | `true`                 | AS 号悬停提示 (hover)。                                                              |
+| `intel.completion`             | boolean | `true`                 | AS 号补全 (completion)。                                                             |
+| `intel.inlayHints`             | boolean | `true`                 | AS 号内嵌提示 (inlay hint)。                                                         |
 | `typeHints.enabled`            | boolean | `true`                 | 为 `false` 时关闭函数返回类型提示。                                                  |
 | `typeHints.inlay.enabled`      | boolean | `true`                 | 函数返回类型内嵌提示。                                                               |
 | `formatter.engine`             | string  | `"dprint"`             | `"dprint"` 或 `"builtin"`。没有设置这个键时，`dprint` 运行失败会回退到 `builtin`。   |
 | `formatter.indentSize`         | integer | 请求中的 `tabSize`     | 每级缩进的空格数，1 到 16。                                                          |
 | `formatter.useTabs`            | boolean | 与 `insertSpaces` 相反 | 使用制表符缩进。                                                                     |
-| `formatter.lineWidth`          | integer | `80`                   | 行宽，20 到 1000。格式化器不折行。                                                   |
+| `formatter.lineWidth`          | integer | `80`                   | 行宽，20 到 1000。格式化器 (formatter) 不折行。                                      |
 | `formatter.safeMode`           | boolean | `true`                 | 输出的声明或解析器错误与输入不同时，拒绝该输出。                                     |
 
 - 服务器忽略其他键。`formatter` 中的未知键是错误。
@@ -128,7 +135,18 @@ node node_modules/@birdcc/lsp/dist/server.js --stdio
 
 ## 项目配置 [#project-configuration]
 
-对每个文档，服务器读取文档所在目录或上级目录中最近的 `bird.config.json` 或 `birdcc.config.json`。它使用 `main`、`workspaces`、`includePaths`、`crossFile`、`linter.enabled`、`linter.rules` 与 `formatter`，忽略 `linter.withBird` 和 `bird` 节。
+对每个文档，服务器读取文档所在目录或上级目录中最近的 `bird.config.json` 或 `birdcc.config.json`。
+
+服务器使用下列键：
+
+- `main`
+- `workspaces`
+- `includePaths`
+- `crossFile`
+- `linter.enabled` 与 `linter.rules`
+- `formatter`
+
+服务器忽略 `linter.withBird` 和 `bird` 节。
 
 | 配置                | 分析的入口文件                                                                                       |
 | ------------------- | ---------------------------------------------------------------------------------------------------- |
@@ -138,18 +156,18 @@ node node_modules/@birdcc/lsp/dist/server.js --stdio
 | 没有配置文件        | [入口探测](../project-configuration.mdx#entry-detection)在工作区文件夹中选中的入口文件，或文档本身。 |
 
 - 选中的入口文件不存在时，文档以自身为入口。
-- 入口文件的 include 图到达不了的文档单独分析。
-- 设置 `crossFile.enabled: false` 时，每个文档单独分析。
-- [include 解析](../project-configuration.mdx#include-resolution)说明搜索路径与工作区根目录。
+- 入口文件的 include 图到达不了某个文档时，服务器单独分析该文档。
+- 设置 `crossFile.enabled: false` 时，服务器单独分析每个文档。
+- [include 解析](../project-configuration.mdx#include-resolution)说明搜索路径与工作区根目录 (workspace root)。
 - 文件监视忽略 `.git`、`node_modules`、`dist`、`build`、`target`、`coverage`、`vendor`、`.pnpm` 中的变化，除非变化的文件属于已分析的 include 图。
 
 ## 入口探测通知 [#notifications]
 
-收到 `initialized` 后，服务器在每个根目录下没有 `bird.config.json` 或 `birdcc.config.json` 的工作区文件夹中运行[入口探测](../project-configuration.mdx#entry-detection)，并用 `window/showMessage` 报告结果：
+收到 `initialized` 后，服务器在每个根目录下没有 `bird.config.json` 或 `birdcc.config.json` 的工作区文件夹中运行[入口探测 (entry detection)](../project-configuration.mdx#entry-detection)，并用 `window/showMessage` 报告结果：
 
 | 探测结论                                  | 类型    | 消息                                                                                                                |
 | ----------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------- |
-| `single`，置信度不低于 70%                | Info    | `Auto-detected BIRD entry: <path> (<n>% confidence).`                                                               |
+| `single`，置信度 (confidence) 不低于 70%  | Info    | `Auto-detected BIRD entry: <path> (<n>% confidence).`                                                               |
 | `single-ambiguous`                        | Warning | ``BIRD project entry detected with low confidence: <path>. Consider creating bird.config.json with `birdcc init`.`` |
 | `monorepo-multi-entry`                    | Info    | ``Multiple BIRD project entries detected. Run `birdcc init --write` to generate workspace configuration.``          |
 | `monorepo-multi-role`                     | Info    | ``BIRD project with multiple roles detected. Entry: <path>. Run `birdcc init --write` for full configuration.``     |
@@ -183,7 +201,9 @@ node node_modules/@birdcc/lsp/dist/server.js --stdio
 | 入口探测扫描              | 8 层目录、20,000 个文件、20,000 个目录项、2,048 个目录                  | 固定                                                                                    |
 | 通配符 include 的目录读取 | 每次分析 20,000 个目录项                                                | 固定                                                                                    |
 
-超出大小上限的文档只得到一条 `analysis/size-limit` 诊断，不做其他分析。超出 include 图上限的 include 会被跳过，并以 `sym/undefined` 报告。
+超出大小上限的文档只得到一条 `analysis/size-limit` 诊断，服务器不做其他分析。
+
+服务器跳过超出 include 图上限的 include，并报告 `sym/undefined`。
 
 ## 在代码中启动服务器 [#api]
 

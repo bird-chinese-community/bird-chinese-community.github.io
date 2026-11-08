@@ -4,7 +4,9 @@ description: Start command, LSP methods, settings, diagnostic codes, entry detec
 icon: Server
 ---
 
-`@birdcc/lsp` is a Language Server Protocol server for BIRD 2 and BIRD 3 configuration files. It uses JSON-RPC over stdin and stdout. The BIRD2 LSP extension for VS Code bundles it, and `birdcc lsp --stdio` from `@birdcc/cli` starts it for other editors. It requires Node.js 22 or newer.
+`@birdcc/lsp` is a Language Server Protocol server for BIRD 2 and BIRD 3 configuration files. It uses JSON-RPC over stdin and stdout.
+
+The BIRD2 LSP extension for VS Code bundles `@birdcc/lsp`, and `birdcc lsp --stdio` from `@birdcc/cli` starts the server for other editors. The server requires Node.js 22 or newer.
 
 ## Start the server [#start]
 
@@ -13,7 +15,8 @@ birdcc lsp --stdio
 node node_modules/@birdcc/lsp/dist/server.js --stdio
 ```
 
-- `npm install --global @birdcc/cli` gives the first command. `npm install @birdcc/lsp` gives the second one. The path of the second command is relative to the project that installed the package; an editor that starts the server in another directory needs the absolute path.
+- `npm install --global @birdcc/cli` gives the first command. `npm install @birdcc/lsp` gives the second one.
+- The path of the second command is relative to the project that installed the package. An editor that starts the server in another directory needs the absolute path.
 - `--stdio` is required.
 - The server sends its log to the client as `window/logMessage` notifications.
 - The process exits when the client sends `exit` or closes stdin. The exit status is 0 when `shutdown` came first, and 1 otherwise.
@@ -64,7 +67,11 @@ The server does not implement other requests, such as `textDocument/rangeFormatt
 ## Diagnostics [#diagnostics]
 
 - The server analyzes the include graph of the entry file of each open document and publishes diagnostics for every file in that graph.
-- Rule diagnostics carry the rule code and the severity of `@birdcc/linter`, after `linter.rules` and `linter.enabled` of the project configuration. The LSP severity is 1 for `error`, 2 for `warning` and 3 for `info`. [Rules](./rules.mdx) lists the codes.
+- Rule diagnostics carry the rule code and the severity of `@birdcc/linter`, after `linter.rules` and `linter.enabled` of the project configuration. [Rules](./rules.mdx) lists the codes.
+- The LSP severity values are:
+  - `error`: 1
+  - `warning`: 2
+  - `info`: 3
 - The server does not run `bird -p`. `birdcc lint --bird` runs BIRD validation.
 
 The server adds three codes of its own:
@@ -128,7 +135,18 @@ The same settings as the `bird2-lsp` section of `workspace/configuration`:
 
 ## Project configuration [#project-configuration]
 
-For each document, the server reads the nearest `bird.config.json` or `birdcc.config.json` in the directory of the document or a parent directory. It uses `main`, `workspaces`, `includePaths`, `crossFile`, `linter.enabled`, `linter.rules` and `formatter`. It ignores `linter.withBird` and the `bird` section.
+For each document, the server reads the nearest `bird.config.json` or `birdcc.config.json` in the directory of the document or a parent directory.
+
+The server uses these keys:
+
+- `main`
+- `workspaces`
+- `includePaths`
+- `crossFile`
+- `linter.enabled` and `linter.rules`
+- `formatter`
+
+The server ignores `linter.withBird` and the `bird` section.
 
 | Configuration         | Entry file of the analysis                                                                                                            |
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
@@ -138,8 +156,8 @@ For each document, the server reads the nearest `bird.config.json` or `birdcc.co
 | No configuration file | The entry file that [entry detection](../project-configuration.mdx#entry-detection) selects in the workspace folder, or the document. |
 
 - When the selected entry file does not exist, the document is its own entry.
-- A document that the include graph of the entry file does not reach is analyzed on its own.
-- With `crossFile.enabled: false`, each document is analyzed on its own.
+- The server analyzes a document on its own when the include graph of the entry file does not reach it.
+- With `crossFile.enabled: false`, the server analyzes each document on its own.
 - [Include resolution](../project-configuration.mdx#include-resolution) describes the search paths and the workspace root.
 - The file watcher ignores changes in `.git`, `node_modules`, `dist`, `build`, `target`, `coverage`, `vendor` and `.pnpm` unless the changed file is part of an analyzed include graph.
 
@@ -183,7 +201,9 @@ For other documents, the server publishes no diagnostics and returns empty resul
 | Entry detection scan       | 8 directory levels, 20,000 files, 20,000 directory entries, 2,048 directories                            | Fixed                                                                                   |
 | Wildcard include listing   | 20,000 directory entries for each analysis                                                               | Fixed                                                                                   |
 
-A document over the size limit gets one `analysis/size-limit` diagnostic and no other analysis. Includes over a graph limit are skipped and reported as `sym/undefined`.
+A document over the size limit gets one `analysis/size-limit` diagnostic and no other analysis.
+
+The server skips includes over a graph limit and reports them as `sym/undefined`.
 
 ## Start the server from code [#api]
 
