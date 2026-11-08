@@ -4,7 +4,13 @@ description: The npm packages of BIRD-LSP, their dependencies, their main export
 icon: Package
 ---
 
-BIRD-LSP publishes eight packages to npm in the `@birdcc` scope. This page describes version 1.0.0. Each package is an ES module (`"type": "module"`), requires Node.js 22 or newer and uses the license GPL-3.0-only.
+BIRD-LSP publishes eight packages to npm in the `@birdcc` scope. This page describes version 1.0.0.
+
+Each package:
+
+- Is an ES module (`"type": "module"`)
+- Requires Node.js 22 or newer
+- Uses the license GPL-3.0-only
 
 | Package                                             | Contents                                                                                           |
 | --------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
@@ -53,7 +59,7 @@ flowchart TD
   CORE --> PARSER
 ```
 
-- `@birdcc/vscode` is the VS Code extension BIRD2 LSP. It is not published to npm. See [VS Code extensions](#vscode).
+- `@birdcc/vscode` is the VS Code extension BIRD2 LSP. The project does not publish it to npm. See [VS Code extensions](#vscode).
 - npm installs the `@birdcc` dependencies of a package automatically. `npm install --global @birdcc/cli` installs all eight npm packages.
 
 ## @birdcc/parser [#parser]
@@ -115,7 +121,11 @@ Links: [npm](https://www.npmjs.com/package/@birdcc/parser), [source and README](
 
 ## @birdcc/core [#core]
 
-Builds the semantic model of a configuration: the symbol table, semantic diagnostics and type-check diagnostics. It resolves `include` statements across files, loads `bird.config.json` and detects entry files.
+Builds the semantic model of a configuration: the symbol table, semantic diagnostics and type-check diagnostics. The package also does these tasks:
+
+- Resolve `include` statements across files
+- Load `bird.config.json`
+- Detect entry files
 
 ```sh
 npm install @birdcc/core
@@ -148,7 +158,9 @@ error semantic/duplicate-definition protocol 'upstream' is already defined
 error semantic/undefined-reference Undefined template reference 'missing_template'
 ```
 
-The linter reports these core diagnostics under rule codes. [Rules](./rules.mdx#parser-and-core) lists the mapping. Links: [npm](https://www.npmjs.com/package/@birdcc/core), [source and README](https://github.com/bird-chinese-community/BIRD-LSP/tree/main/packages/@birdcc/core).
+The linter reports these core diagnostics under rule codes. [Rules](./rules.mdx#parser-and-core) lists the mapping.
+
+Links: [npm](https://www.npmjs.com/package/@birdcc/core), [source and README](https://github.com/bird-chinese-community/BIRD-LSP/tree/main/packages/@birdcc/core).
 
 ## @birdcc/linter [#linter]
 
@@ -187,7 +199,9 @@ warning sym/filter-required 6:24 Protocol 'upstream' references unknown filter '
 info bgp/missing-local-as 4:14 BGP protocol 'upstream' missing local AS number
 ```
 
-`lintBirdConfig` does not read `bird.config.json`. To apply `linter.rules`, pass the diagnostics to `applyLintConfiguration` of `@birdcc/core`. [Rules](./rules.mdx) describes every rule. Links: [npm](https://www.npmjs.com/package/@birdcc/linter), [source and README](https://github.com/bird-chinese-community/BIRD-LSP/tree/main/packages/@birdcc/linter).
+`lintBirdConfig` does not read `bird.config.json`. To apply `linter.rules`, pass the diagnostics to `applyLintConfiguration` of `@birdcc/core`.
+
+[Rules](./rules.mdx) describes every rule. Links: [npm](https://www.npmjs.com/package/@birdcc/linter), [source and README](https://github.com/bird-chinese-community/BIRD-LSP/tree/main/packages/@birdcc/linter).
 
 ## @birdcc/formatter [#formatter]
 
@@ -239,7 +253,12 @@ protocol bgp upstream {
 false
 ```
 
-When you do not pass `engine` and the `dprint` engine fails, `formatBirdConfig` formats the text again with `builtin`. When you pass `engine: "dprint"`, it throws. [Format configurations](../formatting.mdx) describes the rules, the engines and safe mode. Links: [npm](https://www.npmjs.com/package/@birdcc/formatter), [source and README](https://github.com/bird-chinese-community/BIRD-LSP/tree/main/packages/@birdcc/formatter).
+When the `dprint` engine fails:
+
+- Without `engine` in the options, `formatBirdConfig` formats the text again with `builtin`.
+- With `engine: "dprint"`, `formatBirdConfig` throws.
+
+[Format configurations](../formatting.mdx) describes the rules, the engines and safe mode. Links: [npm](https://www.npmjs.com/package/@birdcc/formatter), [source and README](https://github.com/bird-chinese-community/BIRD-LSP/tree/main/packages/@birdcc/formatter).
 
 ## @birdcc/dprint-plugin-bird [#dprint-plugin-bird]
 
@@ -274,7 +293,9 @@ protocol device {
 }
 ```
 
-`formatText` throws when safe mode rejects the output or when no plugin handles the file extension. [Use the dprint plugin](../formatting.mdx#dprint) shows the configuration for the dprint CLI. Links: [npm](https://www.npmjs.com/package/@birdcc/dprint-plugin-bird), [source and README](https://github.com/bird-chinese-community/BIRD-LSP/tree/main/packages/@birdcc/dprint-plugin-bird).
+`formatText` throws when safe mode rejects the output or when no plugin handles the file extension.
+
+[Use the dprint plugin](../formatting.mdx#dprint) shows the configuration for the dprint CLI. Links: [npm](https://www.npmjs.com/package/@birdcc/dprint-plugin-bird), [source and README](https://github.com/bird-chinese-community/BIRD-LSP/tree/main/packages/@birdcc/dprint-plugin-bird).
 
 ## @birdcc/intel [#intel]
 
@@ -284,7 +305,7 @@ Contains `db/asn-db.bin.gz`, an offline snapshot of AS names, classes and countr
 npm install @birdcc/intel
 ```
 
-- `createAsnIntel(dbPath?)` loads the bundled database or the file at `dbPath` and returns an `AsnIntel` object with `available`, `count`, `exactLookup(asn)`, `prefixSearch(prefix, limit?)`, `lookupDisplay(asn)` and `formatDisplay(entry)`. It does not throw when the file cannot be loaded. It returns `available: false` and a `failure` object.
+- `createAsnIntel(dbPath?)` loads the bundled database or the file at `dbPath` and returns an `AsnIntel` object with `available`, `count`, `exactLookup(asn)`, `prefixSearch(prefix, limit?)`, `lookupDisplay(asn)` and `formatDisplay(entry)`. When `createAsnIntel` cannot load the file, it returns `available: false` and a `failure` object and does not throw.
 - `loadAsnDatabase(options)` loads a database file and throws on errors.
 - `formatAsnDisplay(entry)` and `countryCodeToFlag(cc)` build the text of hover, completion and inlay hints.
 
@@ -307,7 +328,9 @@ console.log(intel.exactLookup(65001));
 { asn: 65001, name: 'RFC 6996', cls: 'Reserved', cc: 'ZZ' }
 ```
 
-The results depend on the database snapshot in the installed version. [ASN data](../asn-data.mdx) describes the data and its updates. Links: [npm](https://www.npmjs.com/package/@birdcc/intel), [source and README](https://github.com/bird-chinese-community/BIRD-LSP/tree/main/packages/@birdcc/intel).
+The results depend on the database snapshot in the installed version.
+
+[ASN data](../asn-data.mdx) describes the data and its updates. Links: [npm](https://www.npmjs.com/package/@birdcc/intel), [source and README](https://github.com/bird-chinese-community/BIRD-LSP/tree/main/packages/@birdcc/intel).
 
 ## @birdcc/lsp [#lsp]
 
@@ -331,7 +354,9 @@ startLspServer({ disableAsnIntel: true });
 node server.mjs --stdio
 ```
 
-`vscode-languageserver` reads the transport from the process arguments. Without a script, run `birdcc lsp --stdio` or `node node_modules/@birdcc/lsp/dist/server.js --stdio`. [Language server](./language-server.mdx) lists the capabilities and settings. Links: [npm](https://www.npmjs.com/package/@birdcc/lsp), [source and README](https://github.com/bird-chinese-community/BIRD-LSP/tree/main/packages/@birdcc/lsp).
+`vscode-languageserver` reads the transport from the process arguments. Without a script, run `birdcc lsp --stdio` or `node node_modules/@birdcc/lsp/dist/server.js --stdio`.
+
+[Language server](./language-server.mdx) lists the capabilities and settings. Links: [npm](https://www.npmjs.com/package/@birdcc/lsp), [source and README](https://github.com/bird-chinese-community/BIRD-LSP/tree/main/packages/@birdcc/lsp).
 
 ## @birdcc/cli [#cli]
 
@@ -346,7 +371,9 @@ npm install --global @birdcc/cli
 - `runBirdValidation`, `parseBirdStderr`, `formatBirdConfigText` and `runLspStdio`.
 - The subpath `@birdcc/cli/output-types` exports the TypeScript types of the JSON output, and `@birdcc/cli/output-schemas` exports zod 4 schemas of it, for example `BirdLintJsonOutputSchema`.
 
-The functions do not read `bird.config.json`. Pass the options in the call. To call them from a project, install the package locally with `npm install @birdcc/cli`:
+The functions do not read `bird.config.json`. Pass the options in the call.
+
+To call the functions from a project, install the package locally with `npm install @birdcc/cli`:
 
 ```ts title="check.mjs"
 import { runFmt, runLint } from "@birdcc/cli";
@@ -373,7 +400,7 @@ Links: [npm](https://www.npmjs.com/package/@birdcc/cli), [source and README](htt
 
 ## VS Code extensions [#vscode]
 
-Two packages of the repository are published as VS Code extensions to the VS Code Marketplace and Open VSX, not to npm:
+The repository publishes two packages as VS Code extensions to the VS Code Marketplace and Open VSX, not to npm:
 
 | Package                | Extension ID                  | Contents                                                                               |
 | ---------------------- | ----------------------------- | -------------------------------------------------------------------------------------- |

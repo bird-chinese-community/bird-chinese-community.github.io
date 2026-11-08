@@ -4,7 +4,9 @@ description: 用 birdcc lint 检查 BIRD 2 与 BIRD 3 配置文件，读懂诊�
 icon: ListChecks
 ---
 
-`birdcc lint` 用 `@birdcc/linter` 的 32 条 lint 规则检查 BIRD 配置。它会跟随 `include` 语句读取其他文件，也可以把 `bird -p` 报告的错误加入结果。这个命令来自 `@birdcc/cli` 包，需要 Node.js 22 或更新版本。
+`birdcc lint` 用 `@birdcc/linter` 的 32 条 lint 规则 (lint rule) 检查 BIRD 配置。它会跟随 `include` 语句读取其他文件，也可以把 `bird -p` 报告的错误加入结果。
+
+这个命令来自 `@birdcc/cli` 包，需要 Node.js 22 或更新版本。
 
 ```sh
 npm install --global @birdcc/cli
@@ -22,22 +24,26 @@ birdcc lint bird.conf
 
 birdcc 从该文件所在目录或上级目录中最近的 `bird.config.json` 读取设置。
 
-不传文件参数时，birdcc 从当前目录向上查找 `bird.config.json`，检查 `main` 指定的文件；没有设置 `main` 时检查 `bird.conf`。配置设置了 `workspaces` 时，birdcc 检查每个匹配目录中的 `bird.conf`。找不到配置文件时，命令失败，退出码为 1。
+不传文件参数时，birdcc 从当前目录向上查找 `bird.config.json`：
+
+- birdcc 检查 `main` 指定的文件；没有设置 `main` 时检查 `bird.conf`。
+- 配置设置了 `workspaces` 时，birdcc 检查每个匹配目录中的 `bird.conf`。
+- 找不到配置文件时，命令失败，退出码 (exit status) 为 1。
 
 ```sh
 birdcc init --write
 birdcc lint
 ```
 
-`birdcc init --write` 探测入口文件并写出 `bird.config.json`。[项目配置](./project-configuration.mdx)介绍这个文件，[`init` 参考](./reference/cli.mdx#init)列出探测选项。
+`birdcc init --write` 探测入口文件 (entry file) 并写出 `bird.config.json`。[项目配置](./project-configuration.mdx)介绍这个文件，[`init` 参考](./reference/cli.mdx#init)列出探测选项。
 
-## 跨文件分析 [#cross-file]
+## 跨文件分析 (cross-file analysis) [#cross-file]
 
-跨文件分析默认开启。birdcc 分析入口文件的 include 图，即入口文件以及它直接或间接 include 的全部文件。
+跨文件分析默认开启。birdcc 分析入口文件的 include 图 (include graph)，即入口文件以及它直接或间接 include 的全部文件。
 
 - 含有 `include` 语句的文件就是入口文件。
 - 对其他文件，birdcc 在文件所在目录及最多四层上级目录中探测入口文件。探测不到入口文件时，以该文件本身作为入口文件。
-- 输出包含 include 图中每个文件的诊断。
+- 输出包含 include 图中每个文件的诊断 (diagnostic)。
 
 示例项目：
 
@@ -91,20 +97,35 @@ WARNING sym/duplicate [file:///srv/bird/project/old/legacy.conf] 2:8 [semantic/d
 
 在 `bird.config.json` 中写 `"crossFile": { "enabled": false }`，每次运行都会关闭跨文件分析。
 
-include 图有以下上限：嵌套 16 层、256 个文件、单个文件 2 MiB、总计 16 MiB。`--include-max-depth` 与 `--include-max-files` 只修改本次运行的前两项上限，[`crossFile` 配置项](./reference/configuration.mdx#cross-file)可以修改全部四项。超过上限的 include 会被跳过，并报告为 `sym/undefined`。被检查的文件本身超过大小上限时，命令失败。
+include 图有以下上限：
 
-include 解析到工作区根目录之外时，birdcc 同样跳过它并报告为 `sym/undefined`，除非 `crossFile.externalIncludes` 为 `true`。[include 解析](./project-configuration.mdx#include-resolution)说明查找顺序与工作区根目录。
+- 嵌套 16 层
+- 256 个文件
+- 单个文件 2 MiB
+- 总计 16 MiB
+
+`--include-max-depth` 与 `--include-max-files` 只修改本次运行的前两项上限。[`crossFile` 配置项](./reference/configuration.mdx#cross-file)可以修改全部四项。
+
+birdcc 跳过超过上限的 include，并报告 `sym/undefined`。所检查的文件本身超过大小上限时，命令失败。
+
+include 解析到工作区根目录 (workspace root) 之外时，birdcc 同样跳过它并报告为 `sym/undefined`，除非 `crossFile.externalIncludes` 为 `true`。[include 解析](./project-configuration.mdx#include-resolution)说明查找顺序与工作区根目录。
 
 ## 读懂输出 [#output]
 
-每条诊断占一行，依次是级别、规则代码、文件 URI、行号与列号（都从 1 开始）、消息。
+每条诊断占一行，依次包含：
+
+1. 级别 (severity)
+2. 规则代码 (rule code)
+3. 文件 URI
+4. 行号与列号，都从 1 开始
+5. 消息
 
 ```text
 WARNING sym/filter-required [file:///srv/bird/project/bird.conf] 12:19 Protocol 'upstream' references unknown filter 'peer_out'
 ```
 
 - 没有诊断时，命令输出 `No problems found during linting`。
-- 解析器与 `@birdcc/core` 用自己的代码报告一部分问题。birdcc 把这些诊断归到规则代码下，并在消息开头的方括号中保留原始代码，例如 `[semantic/duplicate-definition]`。在 `linter.rules` 中使用规则代码。
+- 解析器 (parser) 与 `@birdcc/core` 用自己的代码报告一部分问题。birdcc 把这些诊断归到规则代码下，并在消息开头的方括号中保留原始代码，例如 `[semantic/duplicate-definition]`。在 `linter.rules` 中使用规则代码。
 - 来自 `bird -p` 的诊断没有文件 URI。
 - `-v` 把进度与耗时输出到 stderr，每行以 `[verbose]` 开头。
 
@@ -147,7 +168,9 @@ WARNING sym/filter-required [file:///srv/bird/project/bird.conf] 12:19 Protocol 
 ERROR sym/filter-required [file:///srv/bird/project/bird.conf] 12:19 Protocol 'upstream' references unknown filter 'peer_out'
 ```
 
-要让 BGP 与 OSPF 问题也导致失败，再加上 `"bgp/*": "error"` 与 `"ospf/*": "error"`。[修改级别](./reference/rules.mdx#severity)说明 birdcc 如何匹配这些键。[CI](./ci.mdx) 给出完整的 GitHub Actions 工作流。
+要让 BGP 与 OSPF 问题也导致失败，再加上 `"bgp/*": "error"` 与 `"ospf/*": "error"`。[修改级别](./reference/rules.mdx#severity)说明 birdcc 如何匹配这些键。
+
+[CI](./ci.mdx) 给出完整的 GitHub Actions 工作流 (workflow)。
 
 ## 用 bird -p 检查 [#bird]
 
@@ -155,7 +178,9 @@ ERROR sym/filter-required [file:///srv/bird/project/bird.conf] 12:19 Protocol 'u
 birdcc lint bird.conf --bird
 ```
 
-`--bird` 在静态分析之后运行校验命令，并把它报告的错误加入输出。在 `bird.config.json` 中写 `"linter": { "withBird": true }`，每次运行都会进行校验。birdcc 按下列顺序选用第一个可用的命令模板：
+`--bird` 在静态分析 (static analysis) 之后运行校验命令 (validation command)，并把校验命令报告的错误加入输出。在 `bird.config.json` 中写 `"linter": { "withBird": true }`，每次运行都会进行校验。
+
+birdcc 按下列顺序选用第一个可用的命令模板 (command template)：
 
 1. `--validate-command` 选项。
 2. `bird.config.json` 中的 `bird.validateCommand`。
@@ -168,8 +193,8 @@ BIRD_BIN=/usr/sbin/bird birdcc lint bird.conf --bird
 birdcc lint bird.conf --bird --validate-command "/usr/sbin/bird -p -c {file}"
 ```
 
-- birdcc 把 `{file}` 替换为被检查文件的绝对路径。模板中没有 `{file}` 时，birdcc 把路径追加到末尾。
-- birdcc 不经过 shell 运行命令，工作目录为被检查文件所在目录，超时时间为 10 秒。使用 `workspaces` 时，每个被检查的文件运行一次。
+- birdcc 把 `{file}` 替换为所检查文件的绝对路径。模板中没有 `{file}` 时，birdcc 把路径追加到末尾。
+- birdcc 不经过 shell 运行命令，工作目录为所检查文件所在目录，超时时间为 10 秒。使用 `workspaces` 时，birdcc 为每个所检查的文件运行一次命令。
 - 在容器或其他主机上运行 BIRD 的模板，必须能在相同的绝对路径找到该文件。
 - 命令写到 stderr 的每一行都会成为一条 `bird/parse-error` 诊断。命令无法启动、超时，或以非零状态退出且 stderr 没有输出时，产生 `bird/runner-error`。这两个代码的级别都是 `error`，所以会让命令以退出码 1 结束。
 
@@ -181,4 +206,6 @@ CLI 参考中的 [BIRD 校验](./reference/cli.mdx#bird-validation)一节列出�
 birdcc lint --format json > birdcc-lint.json
 ```
 
-`--json` 等同于 `--format json`。报告包含 `diagnostics` 数组，以及计数 `files`、`rules`、`errors`、`warnings`。退出码与文本输出相同。[JSON 输出](./reference/cli.mdx#json-output)列出全部字段。
+`--json` 等同于 `--format json`。退出码与文本输出相同。
+
+报告包含 `diagnostics` 数组，以及计数 `files`、`rules`、`errors`、`warnings`。[JSON 输出](./reference/cli.mdx#json-output)列出全部字段。

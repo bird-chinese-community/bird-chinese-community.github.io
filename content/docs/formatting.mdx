@@ -4,7 +4,9 @@ description: Format BIRD 2 and BIRD 3 configuration files with birdcc fmt, the d
 icon: Paintbrush
 ---
 
-`birdcc fmt` formats one BIRD configuration file with `@birdcc/formatter`. The formatter indents each line by its block depth and normalizes whitespace. It does not wrap, join, split or reorder lines. The command comes from the `@birdcc/cli` package and requires Node.js 22 or newer.
+`birdcc fmt` formats one BIRD configuration file with `@birdcc/formatter`. The command comes from the `@birdcc/cli` package and requires Node.js 22 or newer.
+
+The formatter indents each line by its block depth and normalizes whitespace. It does not wrap, join, split or reorder lines.
 
 ```sh
 npm install --global @birdcc/cli
@@ -22,7 +24,9 @@ birdcc fmt bird.conf
 Format check failed. Run `birdcc fmt <file> --write` to fix.
 ```
 
-The command exits with status 1 when the file needs formatting and with status 0 when it does not. `--check` gives the same result explicitly. Write the formatted text back to the file:
+The command exits with status 1 when the file needs formatting and with status 0 when it does not. `--check` gives the same result explicitly.
+
+Write the formatted text back to the file:
 
 ```sh
 birdcc fmt bird.conf --write
@@ -58,7 +62,7 @@ protocol bgp upstream {
 - Without a file argument, `birdcc fmt` uses the `main` entry of the nearest `bird.config.json`, or `bird.conf` when `main` is not set. The command formats only that file, not its include graph.
 - When `bird.config.json` sets `workspaces`, pass the file to format.
 - `--json` prints `{ "changed", "filePath" }` instead of the message. The exit status is the same.
-- `--write` and `--check` cannot be used together.
+- `birdcc fmt` rejects `--write` together with `--check`.
 
 The [`fmt` reference](./reference/cli.mdx#fmt) lists every message and exit status. [CI](./ci.mdx) shows `birdcc fmt --check` in a GitHub Actions workflow.
 
@@ -68,10 +72,18 @@ Both engines apply these rules:
 
 - Indent each line by its nesting depth of `{ }` and `[ ]` blocks in the Tree-sitter syntax tree. Braces in strings and comments do not change the depth.
 - Collapse consecutive blank lines into one and remove blank lines at the end of the file.
-- Convert `\r\n` and `\r` line endings to `\n`, remove trailing spaces and tabs except after a comment, and end the file with one `\n`.
+- Convert `\r\n` and `\r` line endings to `\n`.
+- Remove trailing spaces and tabs, except after a comment.
+- End the file with one `\n`.
 - Keep the lines of a multi-line comment unchanged, including their indentation.
 
-On the other lines, the formatter also writes `name{` as `name {`, removes the spaces before a final `;`, and puts one space between the code and a trailing `#` comment. Lines whose code contains `if`, `then`, `else`, `return` or one of `~ & | ? : ( [ ]` are expression lines. The formatter changes only their indentation and the space before a trailing comment.
+On the other lines, the formatter also makes these changes:
+
+- Write `name{` as `name {`.
+- Remove the spaces before a final `;`.
+- Put one space between the code and a trailing `#` comment.
+
+Lines whose code contains `if`, `then`, `else`, `return` or one of `~ & | ? : ( [ ]` are expression lines. The formatter changes only their indentation and the space before a trailing comment.
 
 ## Engines [#engines]
 
@@ -100,7 +112,10 @@ Select the engine for one run with `--engine`, or for every run with `formatter.
 birdcc fmt bird.conf --write --engine builtin
 ```
 
-When neither `--engine` nor `formatter.engine` is set and the `dprint` engine fails, birdcc formats the file again with the `builtin` engine. It prints `Formatting with @birdcc/formatter failed, falling back to builtin formatter: <reason>` to stderr. When you set the engine, birdcc reports the failure and exits with status 1.
+When the `dprint` engine fails, the result depends on the engine setting:
+
+- Neither `--engine` nor `formatter.engine` is set: birdcc formats the file again with the `builtin` engine and prints `Formatting with @birdcc/formatter failed, falling back to builtin formatter: <reason>` to stderr.
+- You set the engine: birdcc reports the failure and exits with status 1.
 
 ## Safe mode [#safe-mode]
 
@@ -109,9 +124,11 @@ Safe mode is on by default. Before the formatter returns changed text, it parses
 - The declaration tree without source positions, with whitespace in text values collapsed.
 - The code and the message of each parse error.
 
-When the results differ, formatting fails with `Formatter safe mode rejected output because semantic fingerprint changed` and the file stays unchanged. The `dprint` engine also runs a check inside the plugin. It compares the node kinds, child counts, missing nodes and token text of the two Tree-sitter trees, and fails with `Formatter safe mode rejected output because syntax or token content changed`.
+When the results differ, formatting fails with `Formatter safe mode rejected output because semantic fingerprint changed` and the file stays unchanged.
 
-- A file with syntax errors is formatted when its parse errors are the same before and after formatting.
+The `dprint` engine also runs a check inside the plugin. It compares the node kinds, child counts, missing nodes and token text of the two Tree-sitter trees, and fails with `Formatter safe mode rejected output because syntax or token content changed`.
+
+- The formatter formats a file with syntax errors when its parse errors are the same before and after formatting.
 - When the output is identical to the input, the check does not run.
 
 To turn safe mode off, set `"safeMode": false` in the `formatter` section of `bird.config.json`.
@@ -140,11 +157,15 @@ To turn safe mode off, set `"safeMode": false` in the `formatter` section of `bi
 | `lineWidth`  | `80`       | 20 to 1000              | Lines longer than this value keep more of their text. See [Engines](#engines). The formatter never wraps lines. |
 | `safeMode`   | `true`     | `true`, `false`         | Reject output whose parse result differs from the input. See [Safe mode](#safe-mode).                           |
 
-`birdcc fmt` has no command-line options for indentation or line width. `birdcc init` adds `formatter.indentSize` when the entry files use an indentation of 2, 4 or 8 spaces. The [configuration reference](./reference/configuration.mdx#formatter) describes the complete `formatter` section.
+`birdcc fmt` has no command-line options for indentation or line width. `birdcc init` adds `formatter.indentSize` when the entry files use an indentation of 2, 4 or 8 spaces.
+
+The [configuration reference](./reference/configuration.mdx#formatter) describes the complete `formatter` section.
 
 ## Use the dprint plugin [#dprint]
 
-The dprint CLI can load `@birdcc/dprint-plugin-bird` directly, for example in a repository where dprint already formats other files. `npm:` plugin specifiers and additive `associations` require dprint 0.55.0 or newer. The examples below were tested with dprint 0.64.3.
+The dprint CLI can load `@birdcc/dprint-plugin-bird` directly, for example in a repository where dprint already formats other files.
+
+`npm:` plugin specifiers and additive `associations` require dprint 0.55.0 or newer. dprint 0.64.3 produces the results shown in the examples below.
 
 <Steps>
 
@@ -195,12 +216,12 @@ npx dprint fmt
 
 The plugin options go in the `birdcc` object of `dprint.json`. dprint does not read `bird.config.json`.
 
-| Key           | Default                                             | Description                                                                                                   |
-| ------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `lineWidth`   | `lineWidth` of the dprint configuration, else 80    | An expression line longer than this value also keeps the spacing before its comment. Lines are never wrapped. |
-| `indentWidth` | `indentWidth` of the dprint configuration, else 2   | Spaces for each indentation level. The key in `bird.config.json` is `indentSize`.                             |
-| `useTabs`     | `useTabs` of the dprint configuration, else `false` | Indent with one tab for each level.                                                                           |
-| `safeMode`    | `true`                                              | Run the check inside the plugin. The `@birdcc/parser` comparison of `@birdcc/formatter` does not run.         |
+| Key           | Default                                             | Description                                                                                                        |
+| ------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `lineWidth`   | `lineWidth` of the dprint configuration, else 80    | An expression line longer than this value also keeps the spacing before its comment. The plugin never wraps lines. |
+| `indentWidth` | `indentWidth` of the dprint configuration, else 2   | Spaces for each indentation level. The key in `bird.config.json` is `indentSize`.                                  |
+| `useTabs`     | `useTabs` of the dprint configuration, else `false` | Indent with one tab for each level.                                                                                |
+| `safeMode`    | `true`                                              | Run the check inside the plugin. The `@birdcc/parser` comparison of `@birdcc/formatter` does not run.              |
 
 - An unknown key in the `birdcc` object stops dprint with `Unknown property in configuration`. The JSON schema is [`schemas/dprint-plugin-bird.schema.json`](https://github.com/bird-chinese-community/BIRD-LSP/blob/main/schemas/dprint-plugin-bird.schema.json).
 - The plugin formats every file with the extension `.conf` or `.bird`. To exclude other `.conf` files or to add file names, set `associations`:
@@ -213,11 +234,15 @@ The plugin options go in the `birdcc` object of `dprint.json`. dprint does not r
   }
   ```
 
-- Two other plugin references load the same module: a file path, `"./node_modules/@birdcc/dprint-plugin-bird/dist/dprint-plugin-bird.wasm"`, and a pinned version that dprint downloads from the npm registry, `"npm:@birdcc/dprint-plugin-bird@1.0.0/dist/dprint-plugin-bird.wasm"`.
+- Two other plugin references load the same module:
+  - A file path: `"./node_modules/@birdcc/dprint-plugin-bird/dist/dprint-plugin-bird.wasm"`
+  - A pinned version that dprint downloads from the npm registry: `"npm:@birdcc/dprint-plugin-bird@1.0.0/dist/dprint-plugin-bird.wasm"`
 
 ## Format in an editor [#editors]
 
-The editor integrations use `@birdcc/formatter` and read the `formatter` section of `bird.config.json`. They do not format a `.conf` file without BIRD content, for example an `nginx.conf`. [File association](./editors/vscode.mdx#file-association) lists the conditions.
+The editor integrations use `@birdcc/formatter` and read the `formatter` section of `bird.config.json`.
+
+The editor integrations do not format a `.conf` file without BIRD content, for example an `nginx.conf`. [File association](./editors/vscode.mdx#file-association) lists the conditions.
 
 <Tabs items={["VS Code", "Other editors"]}>
 
@@ -231,7 +256,9 @@ The extension takes each option from the first source that sets it:
 2. The settings `bird2-lsp.formatter.engine` and `bird2-lsp.formatter.safeMode`.
 3. The tab size and the indentation type of the editor.
 
-`lineWidth` comes only from `bird.config.json`, with the default 80. When formatting fails, the file stays unchanged and the `BIRD2 LSP` output channel shows the reason. [VS Code settings](./editors/vscode.mdx#settings) lists the settings.
+`lineWidth` comes only from `bird.config.json`, with the default 80. [VS Code settings](./editors/vscode.mdx#settings) lists the settings.
+
+When formatting fails, the extension leaves the file unchanged and the `BIRD2 LSP` output channel shows the reason.
 
 </Tab>
 

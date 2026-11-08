@@ -4,7 +4,9 @@ description: Check BIRD 2 and BIRD 3 configuration files with birdcc lint, read 
 icon: ListChecks
 ---
 
-`birdcc lint` checks a BIRD configuration against the 32 rules of `@birdcc/linter`. It follows `include` statements across files and can add the errors that `bird -p` reports. The command comes from the `@birdcc/cli` package and requires Node.js 22 or newer.
+`birdcc lint` checks a BIRD configuration against the 32 rules of `@birdcc/linter`. It follows `include` statements across files and can add the errors that `bird -p` reports.
+
+The command comes from the `@birdcc/cli` package and requires Node.js 22 or newer.
 
 ```sh
 npm install --global @birdcc/cli
@@ -22,7 +24,11 @@ birdcc lint bird.conf
 
 birdcc reads its settings from the nearest `bird.config.json` in the directory of the file or in a parent directory.
 
-Without a file argument, birdcc searches for `bird.config.json` from the current directory upward. It lints the file that the `main` key names, or `bird.conf` when `main` is not set. When the configuration sets `workspaces`, birdcc lints the `bird.conf` of every matched directory. Without a configuration file, the command fails with exit status 1.
+Without a file argument, birdcc searches for `bird.config.json` from the current directory upward:
+
+- birdcc lints the file that the `main` key names, or `bird.conf` when `main` is not set.
+- When the configuration sets `workspaces`, birdcc lints the `bird.conf` of every matched directory.
+- Without a configuration file, the command fails with exit status 1.
 
 ```sh
 birdcc init --write
@@ -91,13 +97,28 @@ WARNING sym/duplicate [file:///srv/bird/project/old/legacy.conf] 2:8 [semantic/d
 
 `"crossFile": { "enabled": false }` in `bird.config.json` turns cross-file analysis off for every run.
 
-The include graph has these limits: 16 levels of nesting, 256 files, 2 MiB for each file and 16 MiB in total. `--include-max-depth` and `--include-max-files` change the first two limits for one run, and the [`crossFile` keys](./reference/configuration.mdx#cross-file) change all four. birdcc skips an include that exceeds a limit and reports it as `sym/undefined`. A target file that is larger than the size limit makes the command fail.
+The include graph has these limits:
+
+- 16 levels of nesting
+- 256 files
+- 2 MiB for each file
+- 16 MiB in total
+
+`--include-max-depth` and `--include-max-files` change the first two limits for one run. The [`crossFile` keys](./reference/configuration.mdx#cross-file) change all four.
+
+birdcc skips an include that exceeds a limit and reports it as `sym/undefined`. A target file that is larger than the size limit makes the command fail.
 
 birdcc also skips includes that resolve outside the workspace root and reports them as `sym/undefined`, unless `crossFile.externalIncludes` is `true`. [Include resolution](./project-configuration.mdx#include-resolution) describes the search order and the workspace root.
 
 ## Read the output [#output]
 
-Each diagnostic is one line: the severity, the rule code, the file URI, the line and column (both start at 1), and the message.
+Each diagnostic is one line with these parts:
+
+1. The severity
+2. The rule code
+3. The file URI
+4. The line and column, both starting at 1
+5. The message
 
 ```text
 WARNING sym/filter-required [file:///srv/bird/project/bird.conf] 12:19 Protocol 'upstream' references unknown filter 'peer_out'
@@ -147,7 +168,9 @@ With this configuration, the example project prints the following line, and `bir
 ERROR sym/filter-required [file:///srv/bird/project/bird.conf] 12:19 Protocol 'upstream' references unknown filter 'peer_out'
 ```
 
-Add `"bgp/*": "error"` and `"ospf/*": "error"` to also fail on BGP and OSPF findings. [Change severities](./reference/rules.mdx#severity) explains how birdcc matches the keys. [CI](./ci.mdx) shows complete GitHub Actions workflows.
+Add `"bgp/*": "error"` and `"ospf/*": "error"` to also fail on BGP and OSPF findings. [Change severities](./reference/rules.mdx#severity) explains how birdcc matches the keys.
+
+[CI](./ci.mdx) shows complete GitHub Actions workflows.
 
 ## Check with bird -p [#bird]
 
@@ -155,7 +178,9 @@ Add `"bgp/*": "error"` and `"ospf/*": "error"` to also fail on BGP and OSPF find
 birdcc lint bird.conf --bird
 ```
 
-`--bird` runs a validation command after the static analysis and adds its errors to the output. `"linter": { "withBird": true }` in `bird.config.json` turns validation on for every run. birdcc uses the first command template from this list:
+`--bird` runs a validation command after the static analysis and adds its errors to the output. `"linter": { "withBird": true }` in `bird.config.json` turns validation on for every run.
+
+birdcc uses the first command template from this list:
 
 1. The `--validate-command` option.
 2. `bird.validateCommand` in `bird.config.json`.
@@ -181,4 +206,6 @@ The [BIRD validation](./reference/cli.mdx#bird-validation) section of the CLI re
 birdcc lint --format json > birdcc-lint.json
 ```
 
-`--json` is the same as `--format json`. The report contains the `diagnostics` array and the counts `files`, `rules`, `errors` and `warnings`. The exit status is the same as for the text output. [JSON output](./reference/cli.mdx#json-output) lists every field.
+`--json` is the same as `--format json`. The exit status is the same as for the text output.
+
+The report contains the `diagnostics` array and the counts `files`, `rules`, `errors` and `warnings`. [JSON output](./reference/cli.mdx#json-output) lists every field.

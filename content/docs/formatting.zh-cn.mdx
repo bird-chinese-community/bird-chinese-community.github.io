@@ -4,7 +4,9 @@ description: 用 birdcc fmt、dprint CLI 或编辑器格式化 BIRD 2 与 BIRD 3
 icon: Paintbrush
 ---
 
-`birdcc fmt` 用 `@birdcc/formatter` 格式化一个 BIRD 配置文件。格式化工具按块的嵌套深度缩进每一行，并规范空白字符。它不折行，也不合并、拆分或调整行的顺序。这个命令来自 `@birdcc/cli` 包，需要 Node.js 22 或更新版本。
+`birdcc fmt` 用 `@birdcc/formatter` 格式化一个 BIRD 配置文件。这个命令来自 `@birdcc/cli` 包，需要 Node.js 22 或更新版本。
+
+格式化工具 (formatter) 按块的嵌套深度缩进每一行，并规范空白字符。它不折行，也不合并、拆分或调整行的顺序。
 
 ```sh
 npm install --global @birdcc/cli
@@ -22,7 +24,9 @@ birdcc fmt bird.conf
 Format check failed. Run `birdcc fmt <file> --write` to fix.
 ```
 
-文件需要格式化时，命令以退出码 1 结束；不需要格式化时，退出码为 0。`--check` 显式指定同样的检查。把格式化结果写回文件：
+文件需要格式化时，命令以退出码 (exit status) 1 结束；不需要格式化时，退出码为 0。`--check` 显式指定同样的检查。
+
+把格式化结果写回文件：
 
 ```sh
 birdcc fmt bird.conf --write
@@ -55,23 +59,31 @@ protocol bgp upstream {
 }
 ```
 
-- 不传文件参数时，`birdcc fmt` 使用最近的 `bird.config.json` 中的 `main`；没有设置 `main` 时使用 `bird.conf`。命令只格式化这一个文件，不处理它的 include 图。
+- 不传文件参数时，`birdcc fmt` 使用最近的 `bird.config.json` 中的 `main`；没有设置 `main` 时使用 `bird.conf`。命令只格式化这一个文件，不处理它的 include 图 (include graph)。
 - `bird.config.json` 设置了 `workspaces` 时，传入要格式化的文件。
 - `--json` 输出 `{ "changed", "filePath" }`，不输出提示信息。退出码不变。
-- `--write` 与 `--check` 不能同时使用。
+- `birdcc fmt` 不接受同时传入 `--write` 与 `--check`。
 
-[`fmt` 参考](./reference/cli.mdx#fmt)列出全部提示信息与退出码。[CI](./ci.mdx) 展示了在 GitHub Actions 工作流中运行 `birdcc fmt --check` 的方法。
+[`fmt` 参考](./reference/cli.mdx#fmt)列出全部提示信息与退出码。[CI](./ci.mdx) 展示了在 GitHub Actions 工作流 (workflow) 中运行 `birdcc fmt --check` 的方法。
 
 ## 格式化规则 [#rules]
 
-两个引擎都执行以下规则：
+两个引擎 (engine) 都执行以下规则：
 
-- 按 Tree-sitter 语法树中 `{ }` 与 `[ ]` 块的嵌套深度缩进每一行。字符串和注释中的括号不影响深度。
+- 按 Tree-sitter 语法树 (syntax tree) 中 `{ }` 与 `[ ]` 块的嵌套深度缩进每一行。字符串和注释中的括号不影响深度。
 - 把连续的空行合并为一行，删除文件末尾的空行。
-- 把 `\r\n` 与 `\r` 换行符转换为 `\n`，删除行尾的空格和制表符（注释之后的除外），文件以一个 `\n` 结尾。
+- 把 `\r\n` 与 `\r` 换行符转换为 `\n`。
+- 删除行尾的空格和制表符，注释之后的除外。
+- 文件以一个 `\n` 结尾。
 - 多行注释的各行保持原样，包括缩进。
 
-在其余的行上，格式化工具还会把 `name{` 写成 `name {`，删除行末 `;` 之前的空格，并在代码与行尾 `#` 注释之间保留一个空格。代码中含有 `if`、`then`、`else`、`return` 或 `~ & | ? : ( [ ]` 之一的行是表达式行。格式化工具只修改表达式行的缩进和行尾注释前的空格。
+在其余的行上，格式化工具还会做以下修改：
+
+- 把 `name{` 写成 `name {`。
+- 删除行末 `;` 之前的空格。
+- 在代码与行尾 `#` 注释之间保留一个空格。
+
+代码中含有 `if`、`then`、`else`、`return` 或 `~ & | ? : ( [ ]` 之一的行是表达式行 (expression line)。格式化工具只修改表达式行的缩进和行尾注释前的空格。
 
 ## 格式化引擎 [#engines]
 
@@ -85,9 +97,9 @@ protocol bgp upstream {
 `builtin` 引擎把以下各行也按表达式行处理，只修改它们的缩进和行尾注释前的空格：
 
 - 长度超过 `lineWidth` 的行。
-- 有解析错误的行。
+- 有解析错误 (parse error) 的行。
 - `filter` 与 `function` 主体中的语句。
-- 解析器保留为纯文本的协议语句。
+- 解析器 (parser) 保留为纯文本的协议语句。
 - `import where` 与 `export where` 语句。
 
 对于长度超过 `lineWidth` 的表达式行，`dprint` 引擎还会保留注释前原有的空格。
@@ -100,25 +112,30 @@ protocol bgp upstream {
 birdcc fmt bird.conf --write --engine builtin
 ```
 
-`--engine` 与 `formatter.engine` 都没有设置且 `dprint` 引擎失败时，birdcc 改用 `builtin` 引擎重新格式化文件，并向 stderr 输出 `Formatting with @birdcc/formatter failed, falling back to builtin formatter: <reason>`。指定了引擎时，birdcc 报告这次失败，并以退出码 1 结束。
+`dprint` 引擎失败时，结果取决于引擎设置：
 
-## 安全模式 [#safe-mode]
+- `--engine` 与 `formatter.engine` 都没有设置：birdcc 改用 `builtin` 引擎重新格式化文件，并向 stderr 输出 `Formatting with @birdcc/formatter failed, falling back to builtin formatter: <reason>`。
+- 指定了引擎：birdcc 报告这次失败，并以退出码 1 结束。
+
+## 安全模式 (safe mode) [#safe-mode]
 
 安全模式默认开启。格式化工具返回修改后的文本之前，用 `@birdcc/parser` 分别解析输入和输出，并比较两次解析的结果：
 
-- 去掉源码位置、把文本值中的空白字符合并后的声明树。
+- 去掉源码位置、把文本值中的空白字符合并后的声明树 (declaration tree)。
 - 每个解析错误的代码和消息。
 
-两者不一致时，格式化失败并报告 `Formatter safe mode rejected output because semantic fingerprint changed`，文件保持不变。`dprint` 引擎还会在插件内部再做一次检查：比较两棵 Tree-sitter 语法树的节点类型、子节点数量、缺失节点和词法单元文本，不一致时报告 `Formatter safe mode rejected output because syntax or token content changed`。
+两者不一致时，格式化失败并报告 `Formatter safe mode rejected output because semantic fingerprint changed`，文件保持不变。
 
-- 含有语法错误的文件，只要格式化前后的解析错误相同，就会被格式化。
+`dprint` 引擎还会在插件 (plugin) 内部再做一次检查。这项检查比较两棵 Tree-sitter 语法树的节点类型、子节点数量、缺失节点和词法单元 (token) 文本，不一致时报告 `Formatter safe mode rejected output because syntax or token content changed`。
+
+- 含有语法错误的文件，只要格式化前后的解析错误相同，格式化工具就会格式化该文件。
 - 输出与输入完全相同时，不运行检查。
 
 要关闭安全模式，在 `bird.config.json` 的 `formatter` 部分设置 `"safeMode": false`。
 
 ## 格式化选项 [#options]
 
-`birdcc fmt`、语言服务器和 VS Code 扩展都读取 `bird.config.json` 的 `formatter` 部分：
+`birdcc fmt`、语言服务器 (language server) 和 VS Code 扩展 (extension) 都读取 `bird.config.json` 的 `formatter` 部分：
 
 ```json title="bird.config.json"
 {
@@ -140,11 +157,15 @@ birdcc fmt bird.conf --write --engine builtin
 | `lineWidth`  | `80`       | 20 到 1000              | 长度超过此值的行保留更多原文。见[格式化引擎](#engines)。格式化工具从不折行。 |
 | `safeMode`   | `true`     | `true`、`false`         | 解析结果与输入不一致时拒绝输出。见[安全模式](#safe-mode)。                   |
 
-`birdcc fmt` 没有设置缩进或行宽的命令行选项。入口文件使用 2、4 或 8 个空格缩进时，`birdcc init` 会写入 `formatter.indentSize`。[配置参考](./reference/configuration.mdx#formatter)介绍完整的 `formatter` 部分。
+`birdcc fmt` 没有设置缩进或行宽的命令行选项。入口文件 (entry file) 使用 2、4 或 8 个空格缩进时，`birdcc init` 会写入 `formatter.indentSize`。
+
+[配置参考](./reference/configuration.mdx#formatter)介绍完整的 `formatter` 部分。
 
 ## 使用 dprint 插件 [#dprint]
 
-dprint CLI 可以直接加载 `@birdcc/dprint-plugin-bird`，适用于已经用 dprint 格式化其他文件的仓库。`npm:` 插件写法和叠加生效的 `associations` 需要 dprint 0.55.0 或更新版本。以下示例已在 dprint 0.64.3 上测试。
+dprint CLI 可以直接加载 `@birdcc/dprint-plugin-bird`，适用于已经用 dprint 格式化其他文件的仓库。
+
+`npm:` 插件写法和叠加生效的 `associations` 需要 dprint 0.55.0 或更新版本。以下示例已在 dprint 0.64.3 上测试。
 
 <Steps>
 
@@ -187,7 +208,7 @@ npx dprint check
 npx dprint fmt
 ```
 
-`dprint check` 为每个需要格式化的文件输出差异，并以非零退出码结束（dprint 0.64.3 为 20）。`dprint fmt` 写入文件。
+`dprint check` 为每个需要格式化的文件输出差异 (diff)，并以非零退出码结束（dprint 0.64.3 为 20）。`dprint fmt` 写入文件。
 
 </Step>
 
@@ -213,17 +234,21 @@ npx dprint fmt
   }
   ```
 
-- 另外两种插件写法加载同一个模块：文件路径 `"./node_modules/@birdcc/dprint-plugin-bird/dist/dprint-plugin-bird.wasm"`，以及由 dprint 从 npm registry 下载的固定版本 `"npm:@birdcc/dprint-plugin-bird@1.0.0/dist/dprint-plugin-bird.wasm"`。
+- 另外两种插件写法加载同一个模块：
+  - 文件路径：`"./node_modules/@birdcc/dprint-plugin-bird/dist/dprint-plugin-bird.wasm"`
+  - 由 dprint 从 npm registry 下载的固定版本：`"npm:@birdcc/dprint-plugin-bird@1.0.0/dist/dprint-plugin-bird.wasm"`
 
 ## 在编辑器中格式化 [#editors]
 
-编辑器集成使用 `@birdcc/formatter`，并读取 `bird.config.json` 的 `formatter` 部分。它们不格式化没有 BIRD 内容的 `.conf` 文件，例如 `nginx.conf`。[文件关联](./editors/vscode.mdx#file-association)列出判定条件。
+编辑器集成 (editor integration) 使用 `@birdcc/formatter`，并读取 `bird.config.json` 的 `formatter` 部分。
+
+编辑器集成不格式化没有 BIRD 内容的 `.conf` 文件，例如 `nginx.conf`。[文件关联 (file association)](./editors/vscode.mdx#file-association)列出判定条件。
 
 <Tabs items={["VS Code", "其他编辑器"]}>
 
 <Tab value="VS Code">
 
-BIRD2 LSP 提供格式化文档（Format Document）和格式化选定内容（Format Selection），并为 `bird2` 语言把 `editor.defaultFormatter` 设为 `BIRDCC.bird2-lsp`。格式化选定内容会格式化整个文件，只应用选区内的修改。
+BIRD2 LSP 提供格式化文档 (Format Document) 和格式化选定内容 (Format Selection)，并为 `bird2` 语言把 `editor.defaultFormatter` 设为 `BIRDCC.bird2-lsp`。格式化选定内容会格式化整个文件，只应用选区 (selection) 内的修改。
 
 扩展按以下顺序取每个选项，使用第一个设置了该选项的来源：
 
@@ -231,13 +256,15 @@ BIRD2 LSP 提供格式化文档（Format Document）和格式化选定内容（F
 2. 设置项 `bird2-lsp.formatter.engine` 与 `bird2-lsp.formatter.safeMode`。
 3. 编辑器的制表符宽度和缩进方式。
 
-`lineWidth` 只来自 `bird.config.json`，默认值为 80。格式化失败时，文件保持不变，`BIRD2 LSP` 输出通道中会显示失败原因。[VS Code 设置](./editors/vscode.mdx#settings)列出这些设置项。
+`lineWidth` 只来自 `bird.config.json`，默认值为 80。[VS Code 设置](./editors/vscode.mdx#settings)列出这些设置项。
+
+格式化失败时，扩展保持文件不变，`BIRD2 LSP` 输出通道 (output channel) 中显示失败原因。
 
 </Tab>
 
 <Tab value="其他编辑器">
 
-语言服务器响应 `textDocument/formatting`，返回一个覆盖整个文档的修改。它不支持范围格式化。在 Neovim 中，`vim.lsp.buf.format()` 发送这个请求。
+语言服务器响应 `textDocument/formatting`，返回一个覆盖整个文档的修改。它不支持范围格式化 (range formatting)。在 Neovim 中，`vim.lsp.buf.format()` 发送这个请求。
 
 服务器按以下顺序取每个选项，使用第一个设置了该选项的来源：
 

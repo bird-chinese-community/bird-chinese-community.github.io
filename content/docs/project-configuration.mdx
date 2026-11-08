@@ -4,7 +4,13 @@ description: How bird.config.json sets the entry file, the workspaces, the inclu
 icon: FileCog
 ---
 
-`bird.config.json` describes a BIRD project for `birdcc lint`, `birdcc fmt` and the language server. It names the entry file or the workspace directories, adds include search paths, and sets the options of the linter, the formatter and the cross-file analysis. The [configuration reference](./reference/configuration.mdx) lists every key.
+`bird.config.json` describes a BIRD project for `birdcc lint`, `birdcc fmt` and the language server. The file sets:
+
+- The entry file or the workspace directories
+- Include search paths
+- The options of the linter, the formatter and the cross-file analysis
+
+The [configuration reference](./reference/configuration.mdx) lists every key.
 
 ```json title="bird.config.json"
 {
@@ -17,8 +23,8 @@ icon: FileCog
 
 ## File name and location [#file-name]
 
-- birdcc and the language server read `bird.config.json`. `birdcc.config.json` is an alias with the same format. When both files are in one directory, `bird.config.json` is used.
-- The search starts in the directory of the file and continues through each parent directory to the root of the file system. The first configuration file found applies. Configuration files in other directories are not merged.
+- birdcc and the language server read `bird.config.json`. `birdcc.config.json` is an alias with the same format. When both files are in one directory, they use `bird.config.json`.
+- The search starts in the directory of the file and continues through each parent directory to the root of the file system. The first configuration file found applies. The tools do not merge configuration files from other directories.
 - Paths in the file (`main`, `workspaces`, `includePaths`) are relative to the directory of the configuration file.
 - The file is plain JSON. Comments and trailing commas are parse errors.
 
@@ -37,7 +43,13 @@ birdcc init --dry-run
 birdcc init --write
 ```
 
-`birdcc init` scans a directory, detects the entry file and writes `bird.config.json` into that directory. `--dry-run` prints the result and writes nothing. For a project with `bird.conf`, `filters.conf` and `peers/transit.conf`, the output is:
+`birdcc init` runs these steps:
+
+1. Scan a directory.
+2. Detect the entry file.
+3. Write `bird.config.json` into that directory.
+
+`--dry-run` prints the result and writes nothing. For a project with `bird.conf`, `filters.conf` and `peers/transit.conf`, the output is:
 
 ```text
 Detected candidates:
@@ -70,7 +82,9 @@ The [`init` reference](./reference/cli.mdx#init) lists the options.
 
 ## Entry detection [#entry-detection]
 
-The entry file is the root of the include graph: the analysis starts there and follows its `include` statements. Three callers run the same detection:
+The entry file is the root of the include graph: the analysis starts there and follows its `include` statements.
+
+Three callers run the same detection:
 
 | Caller          | Scanned directory                                                            | When                                                                           | Scan limits            |
 | --------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------ | ---------------------- |
@@ -78,13 +92,19 @@ The entry file is the root of the include graph: the analysis starts there and f
 | `birdcc lint`   | The directory of the linted file, then each of up to four parent directories | Cross-file analysis is on, and the linted file contains no `include` statement | 8 levels, 2,000 files  |
 | Language server | The workspace folder that contains the document                              | No `bird.config.json` or `birdcc.config.json` applies to the document          | 8 levels, 20,000 files |
 
-`birdcc lint` runs detection in each of the five directories. It uses the selected entry file with the highest score and stops at the first one that scores 80 or more. After start, the language server also runs detection in each workspace folder without a configuration file at its root. It shows the result in a [notification](./reference/language-server.mdx#notifications).
+`birdcc lint` runs detection in each of the five directories. It uses the selected entry file with the highest score and stops at the first one that scores 80 or more.
+
+After start, the language server also runs detection in each workspace folder without a configuration file at its root. The server shows the result in a [notification](./reference/language-server.mdx#notifications).
 
 Detection works in these steps:
 
-1. It collects `.conf` files breadth-first and reads at most 20,000 directory entries and 2,048 directories. It skips hidden directories, symbolic links and the directories `node_modules`, `dist`, `build`, `target`, `vendor`, `coverage`, `__tests__`, `test`, `tests`, `fixtures`, `examples`, `example` and `docs`. `birdcc init --ignore` adds directory names to this list. Detection does not scan `/` or a directory directly below it, such as `/etc`.
+1. It collects `.conf` files breadth-first and reads at most 20,000 directory entries and 2,048 directories.
+   - It skips hidden directories, symbolic links and the directories `node_modules`, `dist`, `build`, `target`, `vendor`, `coverage`, `__tests__`, `test`, `tests`, `fixtures`, `examples`, `example` and `docs`. `birdcc init --ignore` adds directory names to this list.
+   - It does not scan `/` or a directory directly below it, such as `/etc`.
 2. It scores at most 100 files. Files with a name from the `canonical-name` row below come first, then the files closer to the scanned directory.
-3. It keeps a file as a candidate only when the file has BIRD evidence: the name `bird.conf`, `bird2.conf`, `bird3.conf` or `bird6.conf` (with or without a leading dot, in any letter case), or BIRD declarations that the parser finds. Other files get the `rejected-no-bird-evidence` signal.
+3. It keeps a file as a candidate only when the file has BIRD evidence. Other files get the `rejected-no-bird-evidence` signal. BIRD evidence is one of:
+   - The name `bird.conf`, `bird2.conf`, `bird3.conf` or `bird6.conf`, with or without a leading dot, in any letter case
+   - BIRD declarations that the parser finds
 4. It adds the points of the signals in the table below. `birdcc init --dry-run` prints the signals of each candidate.
 5. It builds the include graph of the candidates and selects a result.
 
@@ -107,10 +127,18 @@ Detection works in these steps:
 
 Detection also gives each candidate a role:
 
-- A file without `protocol` blocks is a library when one of these is true: it has `define` or top-level `router id` statements, its name contains a word such as `vars`, `filter`, `func`, `macro`, `define`, `common` or `helper`, or it declares only constants, filters, functions, tables and templates.
+- A file without `protocol` blocks is a library when one of these is true:
+  - It has `define` or top-level `router id` statements.
+  - Its name contains a word such as `vars`, `filter`, `func`, `macro`, `define`, `common` or `helper`.
+  - It declares only constants, filters, functions, tables and templates.
 - A file with `protocol` blocks is a fragment when it is in a directory such as `filters`, `peers`, `templates`, `includes`, `common` or `shared`.
 
-An entry contender is a candidate that no other scanned file includes. It must also have the `canonical-name` signal or be neither a library nor a fragment. The result is one of these conclusions:
+An entry contender is a candidate that meets both conditions:
+
+- No other scanned file includes it.
+- It has the `canonical-name` signal, or it is neither a library nor a fragment.
+
+Detection gives one of these conclusions:
 
 | Conclusion             | Condition                                                                                                                                                                                                                                                                                   | Confidence              | Selected entry file                               |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- | ------------------------------------------------- |
@@ -120,7 +148,9 @@ An entry contender is a candidate that no other scanned file includes. It must a
 | `monorepo-multi-role`  | Only one contender has a positive score, and library files with the same name are in several directories. Or: the include graphs of the contenders share 30% or more of their files, no other contender reaches 70% of the best score, and the other contenders are in several directories. | 70                      | The best contender.                               |
 | `monorepo-multi-entry` | Contenders with a positive score are in more than one directory, and the result is not `monorepo-multi-role`.                                                                                                                                                                               | 70                      | None. `init` writes `workspaces`.                 |
 
-`init` writes a selected entry file as `main`. `birdcc lint` and the language server use it as the entry of the include graph. For `monorepo-multi-entry`, `init` writes the directory of each contender with a positive score that is not a library or a fragment.
+`init` writes a selected entry file as `main`. `birdcc lint` and the language server use the selected entry file as the entry of the include graph.
+
+For `monorepo-multi-entry`, `init` writes the directory of each contender with a positive score that is not a library or a fragment.
 
 ## main and workspaces [#entry-files]
 
@@ -134,7 +164,7 @@ Set `main` for a project with one entry file:
 
 - `birdcc lint` and `birdcc fmt` without a file argument use the `main` file. When `main` is not set, they use `bird.conf` in the directory of the configuration file.
 - With a file argument, `birdcc lint` lints that file and finds the entry of its include graph with [entry detection](#entry-detection). It does not use `main` for this.
-- The language server uses the `main` file as the entry for every document below the configuration file. A document that the include graph of `main` does not reach is analyzed on its own.
+- The language server uses the `main` file as the entry for every document below the configuration file. The server analyzes a document on its own when the include graph of `main` does not reach it.
 - When the `main` file does not exist, `birdcc lint` and `birdcc fmt` fail, and the language server analyzes each open document on its own.
 
 Set `workspaces` for a repository with several entry files. Each pattern matches directories, and the entry file of each matched directory is its `bird.conf`:
@@ -148,7 +178,7 @@ Set `workspaces` for a repository with several entry files. Each pattern matches
 - `birdcc lint` without a file argument lints the `bird.conf` of every matched directory. It skips matched directories without `bird.conf`.
 - `birdcc fmt` needs a file argument when `workspaces` is set.
 - The language server uses the `bird.conf` of the deepest matched directory that contains the document. When no pattern matches, it uses the `bird.conf` in the directory of the document. When that file does not exist, the document is its own entry.
-- `main` is ignored when `workspaces` is set.
+- birdcc and the language server ignore `main` when `workspaces` is set.
 
 The [`workspaces` reference](./reference/configuration.mdx#workspaces) describes the pattern syntax.
 
@@ -156,14 +186,19 @@ The [`workspaces` reference](./reference/configuration.mdx#workspaces) describes
 
 birdcc and the language server resolve each `include` path against a list of candidate paths, in this order:
 
-1. The path relative to the directory of the file that contains the `include`. An absolute path is used as it is.
+1. The path relative to the directory of the file that contains the `include`. The tools use an absolute path as it is.
 2. The default search paths:
-   - `birdcc lint`: the directory of the linted file when that file contains an `include` statement. Otherwise, the directory where entry detection selected the entry file, and the directory of the entry file. When detection selects nothing, the directory of the linted file.
+   - `birdcc lint`:
+     - When the linted file contains an `include` statement: the directory of that file.
+     - When entry detection selects an entry file: the directory where detection selected it, and the directory of the entry file.
+     - When detection selects nothing: the directory of the linted file.
    - Language server with a configuration file: the directory of the configuration file.
    - Language server without a configuration file: the workspace folder and the directory of the detected entry file. When detection selects nothing, there is no default search path.
 3. Each entry of `includePaths`, in order, relative to the configuration file.
 
-For each search path, the full `include` path is tried first, then the path without its leading directories: `a/b/c.conf`, then `b/c.conf`, then `c.conf`. A `*` in the file name part, as in `include "peers/*.conf";`, matches the files of that directory in name order. A `*` in a directory part is not expanded.
+For each search path, the tools try the full `include` path first, then the path without its leading directories: `a/b/c.conf`, then `b/c.conf`, then `c.conf`.
+
+A `*` in the file name part, as in `include "peers/*.conf";`, matches the files of that directory in name order. The tools do not expand a `*` in a directory part.
 
 ```mermaid
 flowchart TD
@@ -206,10 +241,12 @@ The `crossFile` keys limit the include graph of one analysis:
 | `crossFile.maxDocumentBytes` | 2097152 (2 MiB)   | 1 or more | UTF-8 size of one file.                       |
 | `crossFile.maxTotalBytes`    | 16777216 (16 MiB) | 1 or more | UTF-8 size of all files in the include graph. |
 
-- An included file that exceeds a limit is skipped and reported as `sym/undefined`. Each file is analyzed once, so circular includes stop before they reach `maxDepth`.
+- birdcc and the language server skip an included file that exceeds a limit and report it as `sym/undefined`.
+- The tools analyze each file once, so circular includes stop before they reach `maxDepth`.
 - `birdcc lint` fails with status 1 when the linted file is larger than `maxDocumentBytes` or `maxTotalBytes`. It prints `Analysis size limit (<n> bytes) exceeded: '<uri>'`.
 - `--include-max-depth` and `--include-max-files` override `maxDepth` and `maxFiles` for one `birdcc lint` run.
-- The language server does not analyze an open document that exceeds the size limit and reports `analysis/size-limit` instead. Its setting `performance.maxFileSizeBytes` (`bird2-lsp.performance.maxFileSizeBytes` in VS Code) also limits the document size. See [Language server limits](./reference/language-server.mdx#limits).
+- The language server does not analyze an open document that exceeds the size limit and reports `analysis/size-limit` instead. See [Language server limits](./reference/language-server.mdx#limits).
+- The language server setting `performance.maxFileSizeBytes` (`bird2-lsp.performance.maxFileSizeBytes` in VS Code) also limits the document size.
 
 ## Example: several routers in one repository [#monorepo]
 
@@ -280,4 +317,6 @@ birdcc lint
 birdcc fmt sites/hkg/bird.conf --check
 ```
 
-`birdcc lint` lints `sites/fra/bird.conf` and `sites/hkg/bird.conf`. In an editor, a document in `sites/hkg/` uses `sites/hkg/bird.conf` as its entry file, and the language server shows `Using bird.config.json (workspace mode) for cross-file analysis.`
+`birdcc lint` lints `sites/fra/bird.conf` and `sites/hkg/bird.conf`.
+
+In an editor, a document in `sites/hkg/` uses `sites/hkg/bird.conf` as its entry file, and the language server shows `Using bird.config.json (workspace mode) for cross-file analysis.`
