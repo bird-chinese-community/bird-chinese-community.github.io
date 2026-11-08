@@ -182,7 +182,7 @@ flowchart LR
 
 ## 语言服务器的诊断流程 [#lsp-diagnostics]
 
-每个打开或修改事件都会使受影响的条目失效，并为每个文档 URI 安排一次校验。调度器在最后一个事件之后等待 120 ms，并丢弃已被更新事件取代的结果。校验先为文档确定项目，检查大小上限和文档准入条件，再从入口文件解析 include 图并检查整个图。服务器在分析过程中发布图中其他文件的诊断，调度器发布文档本身的诊断。`crossFile.enabled` 为 `false` 时，`lintBirdConfig` 单独检查这个文档。语言服务器参考中的[诊断](./reference/language-server.mdx#diagnostics)一节说明发布的结果。
+每个打开或修改事件都会使受影响的条目失效，并为每个文档 URI 安排一次校验。调度器在最后一个事件之后等待 120 ms，并丢弃已被更新事件取代的结果。校验先为文档确定项目，检查大小上限和文档准入条件，再从入口文件解析 include 图并检查整个图。服务器在分析过程中发布图中其他文件的诊断，调度器发布文档本身的诊断。`crossFile.enabled` 为 `false` 时，`lintBirdConfig` 单独检查这个文档。LSP 用法参考中的[诊断](./reference/language-server.mdx#diagnostics)一节说明发布的结果。
 
 箭头按时间顺序表示消息和调用。
 
