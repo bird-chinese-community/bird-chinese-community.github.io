@@ -41,6 +41,7 @@ Priority for conflicts: facts and user requirements; accessibility; the reader's
 - [SHOULD] Fumadocs docs layout under the site header: page tree sidebar on the left, the article in the center, the table of contents on the right. The sidebar has no title and does not collapse on desktop.
 - [SHOULD] Article order: title in the H1 role, one-sentence description in muted Body text, a row with the page actions (copy Markdown, open with) above a hairline, then the body. The page ends with the contributor list and the page history when the page has commits, otherwise with the last update time.
 - [SHOULD] No breadcrumb; the sidebar shows the hierarchy.
+- [SHOULD] The sidebar groups pages by tool function in collapsible folders, one level deep. A folder lists its usage pages first and its reference page last. A topic with one page stays a top-level page. Pages for developers of the tools follow a separator at the end.
 - [SHOULD] A guide page orders its body by the reader's steps: the command or configuration first, then its effect, then options and limits. Numbered procedures use `Steps`.
 - [SHOULD] A reference page leads with the table or definition list that answers the lookup. Long explanation follows the table under its own H2.
 - [SHOULD] Below 768px the sidebar becomes a drawer. A 48px bar under the site header holds the "Pages" button that opens it and the search button.
@@ -102,7 +103,7 @@ Priority for conflicts: facts and user requirements; accessibility; the reader's
 ### Icons and flags
 
 - [MUST] Interface icons come from `lucide-react`, 16px in content and 18px in icon buttons, with the default stroke width. Decorative icons have `aria-hidden`.
-- [SHOULD] A page in the sidebar may carry one icon from `lib/icons.tsx`. Card icons are muted and sit beside the title; they have no tile or colored background.
+- [SHOULD] A top-level page or a folder in the sidebar may carry one icon from `lib/icons.tsx`; pages inside a folder have none. Card icons are muted and sit beside the title; they have no tile or colored background.
 - [SHOULD] Language menus and lists show a round flag from `@sankyu/react-circle-flags` before each language name: 16px in menus, 20px in lists. The flag is decorative; the language name, written in that language, is the label.
 
 ### Controls and states
@@ -156,7 +157,7 @@ Minimal usage:
     icon={<Terminal />}
     title="CLI"
     description="Lint and format from the command line."
-    href="./reference/cli.mdx"
+    href="./cli.mdx"
   />
 </Cards>
 ```
