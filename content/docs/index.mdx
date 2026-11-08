@@ -8,12 +8,19 @@ The BIRD Chinese Community (BIRDCC) maintains tools for the configuration files 
 
 ## What the tools do
 
-The tools parse BIRD configuration with a Tree-sitter grammar compiled to WebAssembly. The parser recovers from syntax errors, so declarations after an error are still analyzed. Analysis follows `include` statements across files, by default up to 16 levels and 256 files, and reports diagnostics from 32 lint rules. Formatting uses a dprint plugin written in Rust or a built-in formatter. Safe mode rejects formatter output whose declarations or parse errors differ from the input.
+The tools parse BIRD configuration with a Tree-sitter grammar compiled to WebAssembly. The parser recovers from syntax errors, so the analysis still covers declarations after an error.
+
+Analysis follows `include` statements across files, by default up to 16 levels and 256 files, and reports diagnostics from 32 lint rules.
+
+Formatting uses a dprint plugin written in Rust or a built-in formatter. Safe mode rejects formatter output whose declarations or parse errors differ from the input.
 
 The same analysis runs in two places:
 
 - In an editor, through the language server `@birdcc/lsp`. The VS Code extension BIRD2 LSP contains the server. Neovim, Vim, Helix and other LSP clients start it with `birdcc lsp --stdio`.
-- In a terminal or a CI job, through the `birdcc` command of `@birdcc/cli`: `birdcc lint` checks files, `birdcc fmt` formats them, and `birdcc init` writes the project configuration `bird.config.json`.
+- In a terminal or a CI job, through the `birdcc` command of `@birdcc/cli`:
+  - `birdcc lint` checks files.
+  - `birdcc fmt` formats them.
+  - `birdcc init` writes the project configuration `bird.config.json`.
 
 ## How the parts connect
 

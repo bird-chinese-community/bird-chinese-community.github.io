@@ -4,7 +4,15 @@ description: 在 GitHub Actions 中通过 setup-birdcc action 或单独使用 CL
 icon: Workflow
 ---
 
-[setup-birdcc](https://github.com/bird-chinese-community/setup-birdcc) 是一个 composite 类型的 GitHub Action。它检出仓库，安装 Node.js 与 pnpm，并可以安装 BIRD 2 或 BIRD 3、Rust 工具链以及仓库的依赖。这个 action 不运行 `birdcc`，命令由工作流在自己的步骤中运行。发布标签为 `v1.0.0`。
+[setup-birdcc](https://github.com/bird-chinese-community/setup-birdcc) 是一个 composite 类型的 GitHub Action，发布标签为 `v1.0.0`。
+
+这个 action 完成以下工作：
+
+- 检出 (checkout) 仓库。
+- 安装 Node.js 与 pnpm。
+- 可以安装 BIRD 2 或 BIRD 3、Rust 工具链 (toolchain) 以及仓库的依赖。
+
+这个 action 不运行 `birdcc`。工作流 (workflow) 在自己的步骤中运行这些命令。
 
 ## 基本工作流 [#basic-workflow]
 
@@ -42,10 +50,10 @@ jobs:
         run: birdcc fmt --check
 ```
 
-- setup 步骤安装 BIRD 2，并为后续步骤设置环境变量 `BIRD_BIN`。`birdcc lint --bird` 对入口文件运行 `"$BIRD_BIN" -p -c <file>`。
+- setup 步骤安装 BIRD 2，并为后续步骤设置环境变量 `BIRD_BIN`。`birdcc lint --bird` 对入口文件 (entry file) 运行 `"$BIRD_BIN" -p -c <file>`。
 - `install-dependencies: "false"` 跳过 `pnpm install --frozen-lockfile`。这条命令需要 `working-directory` 中有 `package.json` 与 `pnpm-lock.yaml`。
 - `cache-turbo: "false"` 跳过 Turbo 缓存。只有 Turborepo 项目才需要保留默认值 `"true"`。
-- 出现级别为 `error` 的诊断或命令失败时，`birdcc lint` 以退出码 1 结束。所有规则默认报告 `warning` 或 `info`。要让任务在出现 lint 问题时失败，按[让 CI 在出现问题时失败](./linting.mdx#fail-on-findings)提升 `bird.config.json` 中规则组的级别。
+- 出现级别 (severity) 为 `error` 的诊断 (diagnostic) 或命令失败时，`birdcc lint` 以退出码 1 结束。所有规则默认报告 `warning` 或 `info`。要让任务在出现 lint 问题时失败，按[让 CI 在出现问题时失败](./linting.mdx#fail-on-findings)提升 `bird.config.json` 中规则组的级别。
 - 文件需要格式化时，`birdcc fmt --check` 以退出码 1 结束。
 
 不做全局安装时，用 `pnpm dlx` 或 `npx` 运行 CLI。`pnpm dlx` 运行包中的 `birdcc` 可执行文件，所以参数直接以命令名开头：
@@ -109,9 +117,9 @@ BIRD 安装步骤运行时，还会把值与 `bird-bin` 相同的 `BIRD_BIN` 写
 | `"3"`          | `"ubuntu"`             | 不安装，action 以错误结束。                                   |
 
 - action 只在 Linux runner 上安装 BIRD。在其他 runner 上，它输出一条警告，`bird-bin` 与 `BIRD_BIN` 为空。不要在这类 runner 上使用 `birdcc lint --bird`。
-- `/usr/sbin/bird` 或 `/usr/local/sbin/bird` 已存在且 `--version` 运行成功时，action 直接使用这个可执行文件，不安装软件包。在自托管 runner 上，这个可执行文件的主版本可能与 `bird-version` 不同。
+- `/usr/sbin/bird` 或 `/usr/local/sbin/bird` 已存在且 `--version` 运行成功时，action 直接使用这个可执行文件，不安装软件包。在自托管 runner (self-hosted runner) 上，这个可执行文件的主版本可能与 `bird-version` 不同。
 
-要用两个版本分别检查同一份配置，使用矩阵：
+要用两个版本分别检查同一份配置，使用矩阵 (matrix)：
 
 ```yaml title=".github/workflows/bird.yml"
 jobs:
@@ -144,7 +152,7 @@ jobs:
 - `checkout` 为 `"true"`，且 `fetch-depth` 为 `"0"`。两者都是默认值。
 - 事件带有 pull request 数据，例如 `pull_request` 或 `pull_request_target`。其他事件（例如 `push`）的列表为空。
 
-action 比较 pull request 的基准提交与 `github.sha`，保留文件名以 `.conf`、`.bird`、`.bird2` 或 `.bird3` 结尾的路径。路径相对于仓库根目录，每行一个。列表不包含已删除的文件。
+action 比较 pull request 的基准提交 (base commit) 与 `github.sha`，保留文件名以 `.conf`、`.bird`、`.bird2` 或 `.bird3` 结尾的路径。路径相对于仓库根目录，每行一个。列表不包含已删除的文件。
 
 ```yaml title=".github/workflows/bird.yml"
 - name: Check changed files
@@ -160,7 +168,7 @@ action 比较 pull request 的基准提交与 `github.sha`，保留文件名以 
 
 这个步骤使用[基本工作流](#basic-workflow)中的 `setup` id 与 `birdcc` 安装步骤。
 
-- `birdcc lint <file>` 分析为该文件探测到的入口文件的 include 图，输出可能包含该图中其他文件的诊断。[跨文件分析](./linting.mdx#cross-file)说明探测方式。
+- `birdcc lint <file>` 分析为该文件探测到的入口文件的 include 图 (include graph)，输出可能包含该图中其他文件的诊断。[跨文件分析 (cross-file analysis)](./linting.mdx#cross-file)说明探测方式。
 - 这个步骤不使用 `--bird`。`--bird` 对传入的文件运行 `bird -p`，文件用到其他文件中的定义时，BIRD 会报告错误。请在单独的步骤中对入口文件运行 `birdcc lint --bird`。
 
 ## 不使用 action [#without-action]

@@ -4,7 +4,9 @@ description: "@birdcc/intel 中 ASN 数据库的来源、内容与更新方式�
 icon: Globe
 ---
 
-`@birdcc/intel` 包含一份 AS 名称、AS 类别与国家代码的快照。语言服务器用它提供 AS 号补全、悬停提示与内嵌提示。快照是包中的 `db/asn-db.bin.gz` 文件。服务器在启动时从磁盘读取它，不会为 ASN 数据发起网络请求。
+`@birdcc/intel` 包含一份 AS 名称、AS 类别与国家代码的快照 (snapshot)。语言服务器 (language server) 用它提供 AS 号补全 (completion)、悬停提示 (hover) 与内嵌提示 (inlay hint)。
+
+快照是包中的 `db/asn-db.bin.gz` 文件。服务器在启动时从磁盘读取这个文件，不会为 ASN 数据发起网络请求。
 
 `@birdcc/intel` 1.0.0 包含 2026-11-02 的数据库更新：122,819 条记录，文件大小 1,608,171 字节。服务器启动时在日志中输出记录数：
 
@@ -34,7 +36,7 @@ icon: Globe
 | `cls`  | bgp.tools 的类别，例如 `Eyeball`、`Content`、`Carrier` 或 `T1`。类别未知时为空字符串。 |
 | `cc`   | 两个字母的国家代码，或空字符串。                                                       |
 
-保留 AS 号来自包内的一张表，不来自 CSV。它们的记录为 `cls: "Reserved"`、`cc: "ZZ"`，`name` 为定义它们的文档：
+保留 AS 号 (reserved AS number) 来自包内的一张表，不来自 CSV。它们的记录为 `cls: "Reserved"`、`cc: "ZZ"`，`name` 为定义它们的文档：
 
 | AS 号                                            | `name`          |
 | ------------------------------------------------ | --------------- |
@@ -54,14 +56,14 @@ icon: Globe
 
 ## 更新 [#updates]
 
-BIRD-LSP 的 [`intel-asn-update.yml`](https://github.com/bird-chinese-community/BIRD-LSP/blob/main/.github/workflows/intel-asn-update.yml) 工作流每周一 04:00 UTC 重新构建数据库：
+BIRD-LSP 的 [`intel-asn-update.yml`](https://github.com/bird-chinese-community/BIRD-LSP/blob/main/.github/workflows/intel-asn-update.yml) 工作流 (workflow) 每周一 04:00 UTC 重新构建数据库：
 
 1. 在 `packages/@birdcc/intel` 中运行 `pnpm build:db`，下载当前的 CSV。
 2. `db/asn-db.bin.gz` 不存在或小于 100,000 字节时停止。
 3. 文件有变化时，为 `@birdcc/intel` 添加一条 patch 版本的发布说明。
 4. 从 `feat/weekly-asn-database` 分支创建或更新拉取请求 `chore(intel): Update ASN database`。
 
-合并后的更新随 `@birdcc/intel` 的下一个 patch 版本发布。已安装的包会一直使用它自带的快照，直到你更新这个包。BIRD2 LSP 扩展内置了服务器和数据库，所以新的快照随新的扩展版本一起提供。
+合并后的更新随 `@birdcc/intel` 的下一个 patch 版本发布。已安装的包会一直使用它自带的快照，直到用户更新这个包。BIRD2 LSP 扩展内置了服务器和数据库，所以新的快照随新的扩展版本一起提供。
 
 要自己构建这个文件，在 [BIRD-LSP](https://github.com/bird-chinese-community/BIRD-LSP) 的克隆中运行 `pnpm install` 之后，执行：
 
@@ -81,7 +83,9 @@ pnpm --filter @birdcc/intel build:db -- --csv /path/to/asns.csv
 - `community.add((<n>, ...))` 与 `large_community.add((<n>, ...))` 的第一个数字（带或不带 `bgp_` 前缀），以及 `(<n>, <m>) ~ bgp_community` 的第一个数字。
 - `NAME` 中含有以下划线分隔的 `ASN` 或 `COMMUNITY` 单词时（例如 `MY_ASN`）的 `define <NAME> = <n>`。
 
-在 community 与 `define` 位置，小于 100 的数字会被忽略，42 除外。`community.add` 与 `~ bgp_community` 位置还会忽略 65535。悬停提示与内嵌提示跳过字符串中以及 `#` 或 `//` 之后的文本。在注释中输入 `# AS<digits>` 后也会触发补全。
+在 community 与 `define` 位置，服务器忽略小于 100 的数字，42 除外。`community.add` 与 `~ bgp_community` 位置还忽略 65535。
+
+悬停提示与内嵌提示跳过字符串中以及 `#` 或 `//` 之后的文本。在注释中输入 `# AS<digits>` 后也会触发补全。
 
 | 功能     | 内容                                                                                     |
 | -------- | ---------------------------------------------------------------------------------------- |
@@ -89,7 +93,13 @@ pnpm --filter @birdcc/intel build:db -- --csv /path/to/asns.csv
 | 悬停提示 | 一张表，包含 AS 名称和 ASN，存在时还包含国家和类别，以及指向 BGP.Tools-OpenDB 的链接。   |
 | 内嵌提示 | 数字之后显示 `<flag> AS<n>`。超过六位的 ASN 显示前六位加 `..`，例如 `AS420000..`。       |
 
-`<flag>` 是 `cc` 对应的区域指示符旗帜；保留 AS 号显示白旗；`cc` 为空时不显示旗帜。只有数据库或保留表中存在的 AS 号才显示内嵌提示。
+`<flag>` 显示为以下之一：
+
+- `cc` 对应的区域指示符旗帜 (regional indicator flag)
+- 保留 AS 号的白旗
+- `cc` 为空时不显示任何内容
+
+只有数据库或保留表中存在的 AS 号才显示内嵌提示。
 
 ## 关闭这些功能 [#settings]
 
@@ -141,9 +151,9 @@ node server.mjs --stdio
 - 文件格式必须与 `scripts/build-db.ts` 写出的格式相同。构建命令见[更新](#updates)。
 - 相对的 `asnDbPath` 基于服务器进程的工作目录解析，请使用绝对路径。
 - 把编辑器的服务器命令设为这条命令。在 VS Code 中对应的设置是 `bird2-lsp.serverPath`，例如 `["node", "/srv/asn/server.mjs", "--stdio"]`。
-- `startLspServer({ disableAsnIntel: true })` 启动服务器时不加载 ASN 数据库。
+- `startLspServer({ disableAsnIntel: true })` 启动服务器时不加载 ASN 数据库 (ASN database)。
 
-文件无法加载时，服务器继续运行，AS 号功能不返回任何结果，保留 AS 号也一样。日志给出原因：
+服务器无法加载文件时继续运行，AS 号功能不返回任何结果，保留 AS 号也一样。日志给出原因：
 
 ```text
 [intel] ASN database unavailable: {"code":"missing","message":"ENOENT: no such file or directory, open '/srv/asn/asn-db.bin.gz'","dbPath":"/srv/asn/asn-db.bin.gz","version":{"packageVersion":"1.0.0"}}

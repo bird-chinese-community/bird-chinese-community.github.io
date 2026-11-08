@@ -4,7 +4,9 @@ description: Source, content and updates of the ASN database in @birdcc/intel, w
 icon: Globe
 ---
 
-`@birdcc/intel` contains a snapshot of AS names, AS classes and country codes. The language server reads it for AS number completion, hover and inlay hints. The snapshot is the file `db/asn-db.bin.gz` in the package. The server reads it from disk at startup and makes no network requests for ASN data.
+`@birdcc/intel` contains a snapshot of AS names, AS classes and country codes. The language server reads it for AS number completion, hover and inlay hints.
+
+The snapshot is the file `db/asn-db.bin.gz` in the package. The server reads the file from disk at startup and makes no network requests for ASN data.
 
 `@birdcc/intel` 1.0.0 contains the database update of 2026-11-02: 122,819 records in 1,608,171 bytes. The server log shows the count at startup:
 
@@ -81,7 +83,9 @@ The server treats a number as an AS number in these positions:
 - The first number of `community.add((<n>, ...))` and `large_community.add((<n>, ...))`, with or without the `bgp_` prefix, and of `(<n>, <m>) ~ bgp_community`.
 - `define <NAME> = <n>` when `NAME` contains `ASN` or `COMMUNITY` as a word between underscores, such as `MY_ASN`.
 
-In the community and `define` positions, numbers below 100 are ignored, except 42. The `community.add` and `~ bgp_community` positions also ignore 65535. Hover and inlay hints skip text inside strings and after `#` or `//`. Completion also starts after `# AS<digits>` in a comment.
+In the community and `define` positions, the server ignores numbers below 100, except 42. The `community.add` and `~ bgp_community` positions also ignore 65535.
+
+Hover and inlay hints skip text inside strings and after `#` or `//`. Completion also starts after `# AS<digits>` in a comment.
 
 | Feature     | Content                                                                                                                                  |
 | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
@@ -89,7 +93,13 @@ In the community and `define` positions, numbers below 100 are ignored, except 4
 | Hover       | A table with the AS name and the ASN, plus the country and the class when they are present, and a link to BGP.Tools-OpenDB.              |
 | Inlay hints | `<flag> AS<n>` after the number. An ASN with more than six digits shows its first six digits followed by `..`, for example `AS420000..`. |
 
-`<flag>` is the regional indicator flag of `cc`, a white flag for reserved AS numbers, or nothing when `cc` is empty. Inlay hints appear only for AS numbers that the database or the reserved table contains.
+`<flag>` shows one of these:
+
+- the regional indicator flag of `cc`
+- a white flag for reserved AS numbers
+- nothing, when `cc` is empty
+
+Inlay hints appear only for AS numbers that the database or the reserved table contains.
 
 ## Turn the features off [#settings]
 
@@ -143,7 +153,7 @@ node server.mjs --stdio
 - Set the server command of the editor to this command. In VS Code, the setting is `bird2-lsp.serverPath`, for example `["node", "/srv/asn/server.mjs", "--stdio"]`.
 - `startLspServer({ disableAsnIntel: true })` starts the server without an ASN database.
 
-When the file cannot be loaded, the server keeps running and the AS number features return nothing, also for reserved AS numbers. The log shows the reason:
+When the server cannot load the file, it keeps running and the AS number features return nothing, also for reserved AS numbers. The log shows the reason:
 
 ```text
 [intel] ASN database unavailable: {"code":"missing","message":"ENOENT: no such file or directory, open '/srv/asn/asn-db.bin.gz'","dbPath":"/srv/asn/asn-db.bin.gz","version":{"packageVersion":"1.0.0"}}

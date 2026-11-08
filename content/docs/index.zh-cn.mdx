@@ -4,16 +4,23 @@ description: BIRD 2 与 BIRD 3 配置文件的编辑器支持、语言服务器�
 icon: BookOpen
 ---
 
-BIRD 中文社区（BIRDCC）维护一组用于 BIRD 2 与 BIRD 3 配置文件的工具。BIRD 指 BIRD Internet Routing Daemon。本文档对应 BIRD-LSP 1.0.0。
+BIRD 中文社区 (BIRDCC) 维护一组用于 BIRD 2 与 BIRD 3 配置文件的工具。BIRD 指 BIRD Internet Routing Daemon。本文档对应 BIRD-LSP 1.0.0。
 
 ## 工具的作用
 
-工具用编译成 WebAssembly 的 Tree-sitter 语法解析 BIRD 配置。解析器遇到语法错误后继续解析，错误之后的声明照常参与分析。分析会跟随 `include` 语句读取其他文件，默认最多 16 层、256 个文件，并报告 32 条 lint 规则的诊断。格式化使用 Rust 编写的 dprint 插件或内置格式化器。安全模式会拒绝声明或解析错误与输入不一致的格式化结果。
+工具用编译成 WebAssembly 的 Tree-sitter 语法 (grammar) 解析 BIRD 配置。解析器遇到语法错误后继续解析，错误之后的声明照常参与分析。
+
+分析会跟随 `include` 语句读取其他文件，默认最多 16 层、256 个文件，并报告 32 条 lint 规则 (lint rule) 的诊断 (diagnostic)。
+
+格式化使用 Rust 编写的 dprint 插件或内置格式化器。安全模式 (safe mode) 会拒绝声明或解析错误与输入不一致的格式化结果。
 
 同一套分析在两个地方运行：
 
-- 在编辑器中，通过语言服务器 `@birdcc/lsp` 运行。VS Code 扩展 BIRD2 LSP 内置这个服务器。Neovim、Vim、Helix 和其他 LSP 客户端用 `birdcc lsp --stdio` 启动它。
-- 在终端或 CI 任务中，通过 `@birdcc/cli` 提供的 `birdcc` 命令运行：`birdcc lint` 检查文件，`birdcc fmt` 格式化文件，`birdcc init` 写出项目配置 `bird.config.json`。
+- 在编辑器中，通过语言服务器 (language server) `@birdcc/lsp` 运行。VS Code 扩展 BIRD2 LSP 内置这个服务器。Neovim、Vim、Helix 和其他 LSP 客户端用 `birdcc lsp --stdio` 启动它。
+- 在终端或 CI 任务中，通过 `@birdcc/cli` 提供的 `birdcc` 命令运行：
+  - `birdcc lint` 检查文件。
+  - `birdcc fmt` 格式化文件。
+  - `birdcc init` 写出项目配置 (project configuration) `bird.config.json`。
 
 ## 各部分的关系
 
@@ -53,7 +60,7 @@ flowchart LR
   DCLI -->|"插件"| DPRINT
 ```
 
-- VS Code 扩展用 VS Code 自带的 JavaScript 运行时启动内置的语言服务器，不需要安装 Node.js。
+- VS Code 扩展用 VS Code 自带的 JavaScript 运行时 (runtime) 启动内置的语言服务器，不需要安装 Node.js。
 - `birdcc` 需要 Node.js 22 或更新版本。
 - [setup-birdcc](https://github.com/bird-chinese-community/setup-birdcc) 准备 GitHub Actions runner：安装 Node.js、pnpm 和 BIRD（默认 BIRD 2，可选 BIRD 3）。之后的步骤运行 `birdcc lint`、`birdcc fmt --check` 和 `bird -p`。
 - `@birdcc/dprint-plugin-bird` 是 `@birdcc/formatter` 的默认格式化引擎。dprint CLI 也可以把它作为插件加载。

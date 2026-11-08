@@ -8,7 +8,15 @@ This page describes the internals of BIRD-LSP 1.0.0. [Package dependencies](./re
 
 ## Parser [#parser]
 
-`parseBirdConfig` in `@birdcc/parser` turns source text into a `ParsedBirdDocument`. It loads the committed grammar `tree-sitter-birdcc.wasm` through web-tree-sitter once per process and caches the parser. Each call parses the text into a Tree-sitter tree, collects parse issues, and maps the tree to typed declarations. When the runtime cannot load, the call returns an empty program with one `parser/runtime-error` issue and does not throw.
+`parseBirdConfig` in `@birdcc/parser` turns source text into a `ParsedBirdDocument`. It loads the committed grammar `tree-sitter-birdcc.wasm` through web-tree-sitter once per process and caches the parser.
+
+Each call runs three steps:
+
+1. It parses the text into a Tree-sitter tree.
+2. It collects parse issues.
+3. It maps the tree to typed declarations.
+
+When the runtime cannot load, `parseBirdConfig` returns an empty program with one `parser/runtime-error` issue and does not throw.
 
 Arrows show the order of calls and the flow of data.
 
@@ -33,7 +41,13 @@ flowchart TD
 
 ### Snapshot [#core-snapshot]
 
-`buildCoreSnapshotFromParsed` in `@birdcc/core` analyzes one parsed document. It builds a symbol table of `define`, `protocol`, `template`, `filter`, `function` and `table` declarations. It collects semantic diagnostics (router id, neighbor address, prefix literals), template inheritance cycles, duplicate definitions and undefined template references. Then it runs the type checker over filter and function bodies. `buildCoreSnapshot` is the async wrapper that parses the text first.
+`buildCoreSnapshotFromParsed` in `@birdcc/core` analyzes one parsed document in three steps:
+
+1. It builds a symbol table of `define`, `protocol`, `template`, `filter`, `function` and `table` declarations.
+2. It collects semantic diagnostics for router id, neighbor addresses and prefix literals, and diagnostics for template inheritance cycles, duplicate definitions and undefined template references.
+3. It runs the type checker over filter and function bodies.
+
+`buildCoreSnapshot` is the async wrapper that parses the text first.
 
 Arrows show the order of calls and the flow of data.
 
@@ -56,7 +70,20 @@ flowchart TD
 
 ### Cross-file resolution [#cross-file-resolution]
 
-`resolveCrossFileReferences` follows `include` statements from an entry file breadth-first. Before a file is parsed, it must be inside the workspace root and within the byte budgets: 2 MiB for each file and 16 MiB for the graph. The queue stops at 16 levels and 256 files by default. Parsed documents come from a process-wide cache of 512 documents and 16 MiB. After the queue is empty, the symbol tables of all files are merged, so duplicate definitions and template references are checked across files. A file that is already visited or queued is skipped, which ends include cycles without a diagnostic. The [`crossFile` keys](./reference/configuration.mdx#cross-file) of `bird.config.json` change the depth, file and byte limits.
+`resolveCrossFileReferences` follows `include` statements from an entry file breadth-first. It parses a file only when the file is inside the workspace root and within the byte limits.
+
+The default limits are:
+
+- 2 MiB for each file
+- 16 MiB for the whole graph
+- 16 levels of nesting
+- 256 files
+
+The [`crossFile` keys](./reference/configuration.mdx#cross-file) of `bird.config.json` change these limits.
+
+Parsed documents come from a process-wide cache of 512 documents and 16 MiB.
+
+After the queue is empty, `resolveCrossFileReferences` merges the symbol tables of all files and checks duplicate definitions and template references across files. It skips a file that it already visited or queued, which ends include cycles without a diagnostic.
 
 Arrows show the order of calls and the flow of data. The dotted arrow is the failure path.
 
@@ -79,7 +106,20 @@ flowchart TD
 
 ## Linter [#linter]
 
-`lintBirdConfig` in `@birdcc/linter` reuses a parsed document and a core snapshot when the caller passes them, and otherwise creates both. It maps parser and core diagnostics to rule codes with default severities, runs the rule functions of six groups, drops diagnostics that a fragment or library file cannot resolve on its own ([file roles](./reference/rules.mdx#file-roles)), and removes duplicates. Default severities are `warning` for `sym`, `cfg`, `net` and `type` rules and `info` for `bgp` and `ospf` rules. The language server then applies `linter.rules` from `bird.config.json` with `applyLintConfiguration` from `@birdcc/core`, and the CLI with its own `applySeverityOverrides`. Both resolve each code with `resolveSeverityOverride` from `@birdcc/core`: an exact rule code wins, then the longest matching `prefix/*` key, and `off` removes the diagnostic ([Change severities](./reference/rules.mdx#severity)).
+`lintBirdConfig` in `@birdcc/linter` reuses a parsed document and a core snapshot when the caller passes them, and otherwise creates both. Then it does the following:
+
+- It maps parser and core diagnostics to rule codes with default severities.
+- It runs the rule functions of six groups.
+- It drops diagnostics that a fragment or library file cannot resolve on its own ([file roles](./reference/rules.mdx#file-roles)).
+- It removes duplicates.
+
+Default severities are `warning` for `sym`, `cfg`, `net` and `type` rules and `info` for `bgp` and `ospf` rules.
+
+The language server then applies `linter.rules` from `bird.config.json` with `applyLintConfiguration` from `@birdcc/core`, and the CLI with its own `applySeverityOverrides`. Both resolve the severity of each code with `resolveSeverityOverride` from `@birdcc/core` ([Change severities](./reference/rules.mdx#severity)):
+
+- An exact rule code wins.
+- Otherwise, the longest matching `prefix/*` key applies.
+- `off` removes the diagnostic.
 
 Arrows show the order of calls and the flow of data.
 
@@ -105,7 +145,22 @@ flowchart TD
 
 ### Engines [#formatter-engines]
 
-`formatBirdConfig` in `@birdcc/formatter` fills in defaults (`dprint`, indent 2, width 80, spaces, safe mode on) and runs the selected engine. The `dprint` engine hosts the WebAssembly plugin from `@birdcc/dprint-plugin-bird` in a `@dprint/formatter` context, cached for each option set (up to 16 contexts). When the `dprint` engine throws and the caller did not pass `engine`, the formatter formats the text again with the `builtin` engine. When the caller passed `engine: "dprint"`, the error propagates. Both engines use the same line-based algorithm: indentation from bracket tokens in the Tree-sitter tree, blank-line collapsing, and no line wrapping. [Formatting](./formatting.mdx#engines) describes the engines from the user side.
+`formatBirdConfig` in `@birdcc/formatter` fills in defaults and runs the selected engine. The defaults are the `dprint` engine, indent 2, width 80, spaces and safe mode on.
+
+The `dprint` engine hosts the WebAssembly plugin from `@birdcc/dprint-plugin-bird` in a `@dprint/formatter` context. The formatter caches one context for each option set, up to 16 contexts.
+
+When the `dprint` engine throws:
+
+- If the caller did not pass `engine`, the formatter formats the text again with the `builtin` engine.
+- If the caller passed `engine: "dprint"`, the error propagates.
+
+Both engines use the same line-based algorithm:
+
+- indentation from bracket tokens in the Tree-sitter tree
+- blank-line collapsing
+- no line wrapping
+
+[Formatting](./formatting.mdx#engines) describes the engines from the user side.
 
 Arrows show the order of calls and the flow of data.
 
@@ -125,7 +180,14 @@ flowchart TD
 
 ### Safe mode [#safe-mode]
 
-With `safeMode` on, changed output must parse to the same result as the input. Both engines compare a semantic fingerprint built from `@birdcc/parser` output: the declaration tree without source ranges and with whitespace in text collapsed, plus the code and message of each parse issue. The `dprint` engine adds a check inside the Rust plugin that compares Tree-sitter node kinds, child counts, missing-node flags and token text. A file with syntax errors is formatted when its parse issues stay the same.
+With `safeMode` on, changed output must parse to the same result as the input. Both engines compare a semantic fingerprint built from `@birdcc/parser` output. The fingerprint contains:
+
+- the declaration tree without source ranges and with whitespace in text collapsed
+- the code and message of each parse issue
+
+The `dprint` engine adds a check inside the Rust plugin that compares Tree-sitter node kinds, child counts, missing-node flags and token text.
+
+The formatter also formats a file with syntax errors, as long as its parse issues stay the same.
 
 Arrows show the order of calls and the flow of data.
 
@@ -148,7 +210,20 @@ flowchart TD
 
 ## dprint plugin build and distribution [#dprint-plugin]
 
-`build.rs` in `@birdcc/dprint-plugin-bird` runs the pinned `tree-sitter-cli` on `packages/@birdcc/parser/grammar.js`, writes `parser.c` to Cargo's `OUT_DIR`, and compiles it with the `cc` crate. As a result, the WebAssembly module embeds the same grammar as `@birdcc/parser`. `scripts/build-wasm.mjs` builds the crate for `wasm32-unknown-unknown` with the `wasm` feature and copies the module to `dist/dprint-plugin-bird.wasm`. `dist/index.js` exposes the module through `getPath()` and `getBuffer()`, and the release workflow publishes the package to npm with Tegami. `@birdcc/formatter` passes `getBuffer()` to `addPlugin()` on a `@dprint/formatter` context for its default `dprint` engine. The dprint CLI loads the same file through a path or an `npm:` specifier ([Use the dprint plugin](./formatting.mdx#dprint)).
+`build.rs` in `@birdcc/dprint-plugin-bird` generates and compiles the parser in three steps:
+
+1. It runs the pinned `tree-sitter-cli` on `packages/@birdcc/parser/grammar.js`.
+2. It writes `parser.c` to Cargo's `OUT_DIR`.
+3. It compiles `parser.c` with the `cc` crate.
+
+As a result, the WebAssembly module embeds the same grammar as `@birdcc/parser`.
+
+`scripts/build-wasm.mjs` builds the crate for `wasm32-unknown-unknown` with the `wasm` feature and copies the module to `dist/dprint-plugin-bird.wasm`. `dist/index.js` exposes the module through `getPath()` and `getBuffer()`. The release workflow publishes the package to npm with Tegami.
+
+Two consumers load the module:
+
+- `@birdcc/formatter` passes `getBuffer()` to `addPlugin()` on a `@dprint/formatter` context for its default `dprint` engine.
+- The dprint CLI loads the same file through a path or an `npm:` specifier ([Use the dprint plugin](./formatting.mdx#dprint)).
 
 Arrows follow the build and data flow, from sources to consumers.
 
@@ -182,7 +257,17 @@ flowchart LR
 
 ## LSP diagnostics pipeline [#lsp-diagnostics]
 
-Every open or change event invalidates the affected entries and schedules validation for each document URI. The scheduler waits 120 ms after the last event and drops results that a newer event superseded. Validation resolves the project for the document, checks the size budget and the document eligibility, then resolves the include graph from the entry file and lints the whole graph. The server publishes the diagnostics for the other files of the graph during the analysis, and the scheduler publishes the diagnostics of the document itself. When `crossFile.enabled` is `false`, `lintBirdConfig` lints the document on its own. [Diagnostics](./reference/language-server.mdx#diagnostics) in the language server reference describes the result.
+Every open or change event invalidates the affected entries and schedules validation for each document URI. The scheduler waits 120 ms after the last event and drops results that a newer event superseded.
+
+The server validates a document in three steps:
+
+1. It resolves the project for the document.
+2. It checks the size budget and the document eligibility.
+3. It resolves the include graph from the entry file and lints the whole graph.
+
+The server publishes the diagnostics for the other files of the graph during the analysis, and the scheduler publishes the diagnostics of the document itself. When `crossFile.enabled` is `false`, `lintBirdConfig` lints the document on its own.
+
+[Diagnostics](./reference/language-server.mdx#diagnostics) in the language server reference describes the result.
 
 Arrows show messages and calls in time order.
 
@@ -220,7 +305,20 @@ sequenceDiagram
 
 ## Project entry resolution [#project-entry]
 
-`birdcc` and the language server load the nearest `bird.config.json` or `birdcc.config.json` with the same loader, but they pick the entry of the include graph differently. `birdcc lint` takes its targets from the file argument. Without one, it uses `workspaces` when the config sets them and `main` otherwise. For a target without an `include` line, it runs entry detection in the directory of the target and in up to four parent directories. The language server takes the entry from `workspaces` or `main` when a config file exists, and runs entry detection in the containing workspace folder otherwise. Both append `includePaths`, resolved against the directory of the config file, to the include search paths. [Entry detection](./project-configuration.mdx#entry-detection) and [include resolution](./project-configuration.mdx#include-resolution) describe the rules.
+`birdcc` and the language server load the nearest `bird.config.json` or `birdcc.config.json` with the same loader, but they pick the entry of the include graph differently.
+
+`birdcc lint` picks its targets and entries as follows:
+
+- It takes its targets from the file argument.
+- Without a file argument, it uses `workspaces` when the config sets them and `main` otherwise.
+- For a target without an `include` line, it runs entry detection in the directory of the target and in up to four parent directories.
+
+The language server picks the entry as follows:
+
+- When a config file exists, it takes the entry from `workspaces` or `main`.
+- Otherwise, it runs entry detection in the containing workspace folder.
+
+Both append `includePaths`, resolved against the directory of the config file, to the include search paths. [Entry detection](./project-configuration.mdx#entry-detection) and [include resolution](./project-configuration.mdx#include-resolution) describe the rules.
 
 Arrows show control flow.
 
@@ -254,7 +352,11 @@ flowchart TD
 
 ## CLI lint pipeline [#cli-lint]
 
-`birdcc lint` loads the project config, then calls `runLint` for each target. Static analysis runs on the include graph by default and on the single file with `--no-cross-file` or `crossFile.enabled: false`. With `--bird` or `linter.withBird`, `runBirdValidation` runs the first available validation command template without a shell and converts its stderr into diagnostics. Severity overrides from `linter.rules` apply last, and the command exits with status 1 when any diagnostic has the severity `error`. [Check with bird -p](./linting.mdx#bird) describes the options.
+`birdcc lint` loads the project config, then calls `runLint` for each target. Static analysis runs on the include graph by default and on the single file with `--no-cross-file` or `crossFile.enabled: false`.
+
+With `--bird` or `linter.withBird`, `runBirdValidation` runs the first available validation command template without a shell and converts its stderr into diagnostics.
+
+Severity overrides from `linter.rules` apply last. The command exits with status 1 when any diagnostic has the severity `error`. [Check with bird -p](./linting.mdx#bird) describes the options.
 
 Arrows show control flow.
 
@@ -278,7 +380,17 @@ flowchart TD
 
 ## ASN intelligence data flow [#asn-data]
 
-`scripts/build-db.ts` in `@birdcc/intel` downloads `asns/asns.csv` from the `auto-update` branch of BGP.Tools-OpenDB, sorts the rows by ASN, and writes a gzip-compressed four-column MessagePack file to `packages/@birdcc/intel/db/asn-db.bin.gz`. The `intel-asn-update.yml` workflow runs this script every Monday at 04:00 UTC. When the file changed, `tools/intel-release-note.mjs` adds a Tegami patch changeset and the workflow opens a pull request from `feat/weekly-asn-database`. The merged file ships with the next `@birdcc/intel` release. At startup, `startLspServer()` calls `createAsnIntel()`, which validates the file and builds lookup maps. The completion, hover and inlay hint handlers query it unless `bird2-lsp.intel.enabled` or the setting of that feature (`intel.completion`, `intel.hover`, `intel.inlayHints`) is `false`. [ASN data](./asn-data.mdx) describes the database and the settings.
+`scripts/build-db.ts` in `@birdcc/intel` builds the database in three steps:
+
+1. It downloads `asns/asns.csv` from the `auto-update` branch of BGP.Tools-OpenDB.
+2. It sorts the rows by ASN.
+3. It writes a gzip-compressed four-column MessagePack file to `packages/@birdcc/intel/db/asn-db.bin.gz`.
+
+The `intel-asn-update.yml` workflow runs this script every Monday at 04:00 UTC. When the file changed, `tools/intel-release-note.mjs` adds a Tegami patch changeset and the workflow opens a pull request from `feat/weekly-asn-database`. The merged file ships with the next `@birdcc/intel` release.
+
+At startup, `startLspServer()` calls `createAsnIntel()`, which validates the file and builds lookup maps. The completion, hover and inlay hint handlers query these maps unless `bird2-lsp.intel.enabled` or the setting of that feature (`intel.completion`, `intel.hover`, `intel.inlayHints`) is `false`.
+
+[ASN data](./asn-data.mdx) describes the database and the settings.
 
 Arrows follow the data from the upstream CSV to the language server features.
 
@@ -316,7 +428,23 @@ flowchart TB
 
 ### Starting the language server [#language-server-start]
 
-VS Code activates the extension only in a trusted workspace, because the manifest does not declare `capabilities.untrustedWorkspaces`. The extension starts the bundled language server when `bird2-lsp.serverPath` keeps its default value `["birdcc", "lsp", "--stdio"]` and `node_modules/@birdcc/lsp/dist/server.js` exists in the extension directory. It runs that file with `process.execPath`, the VS Code executable, and sets `ELECTRON_RUN_AS_NODE=1` and `ELECTRON_NO_ASAR=1`, so neither Node.js nor `@birdcc/cli` has to be installed. Otherwise, `resolveServerCommand()` splits a string `serverPath` into tokens and rejects shell executables and shell wrappers, and the extension spawns the command without a shell. If `client.start()` fails or does not finish within `bird2-lsp.performance.startupTimeoutMs`, the extension terminates the server process. In that case, and when a running client stops without the extension stopping it, the lifecycle state becomes `error` and the extension starts fallback validation. [Settings](./editors/vscode.mdx#settings) lists the extension settings.
+VS Code activates the extension only in a trusted workspace, because the manifest does not declare `capabilities.untrustedWorkspaces`.
+
+The extension starts the bundled language server when both conditions hold:
+
+- `bird2-lsp.serverPath` keeps its default value `["birdcc", "lsp", "--stdio"]`.
+- `node_modules/@birdcc/lsp/dist/server.js` exists in the extension directory.
+
+The extension runs `server.js` with `process.execPath`, the VS Code executable, and sets `ELECTRON_RUN_AS_NODE=1` and `ELECTRON_NO_ASAR=1`, so neither Node.js nor `@birdcc/cli` has to be installed.
+
+When either condition does not hold, `resolveServerCommand()` splits a string `serverPath` into tokens and rejects shell executables and shell wrappers. The extension then spawns the command without a shell.
+
+If `client.start()` fails or does not finish within `bird2-lsp.performance.startupTimeoutMs`, the extension terminates the server process. The lifecycle state becomes `error` in two cases:
+
+- `client.start()` fails or times out.
+- A running language client stops without the extension stopping it.
+
+In the `error` state, the extension starts fallback validation. [Settings](./editors/vscode.mdx#settings) lists the extension settings.
 
 An arrow points from a step to the step that follows it.
 
@@ -340,7 +468,15 @@ flowchart TD
 
 ### Providers in the extension host [#extension-host-providers]
 
-Besides the language client, the extension registers its own providers in the extension host. Format Document and Format Selection call `formatBirdConfig()` from `@birdcc/formatter`. The `formatter` options from `bird.config.json`, read by `loadBirdProjectConfigForFile()`, take precedence over extension settings and editor indentation. Format Selection keeps only the edits inside the selection. Function return-type hover and inlay hints call `collectFunctionReturnHints()` from `@birdcc/core`. Keyword hover calls `resolveKeywordHoverOnLine()` from the `@birdcc/lsp` library and returns nothing while the language server is running for the file. Every provider first applies `enforceLargeFileGuard()` and then the document admission check, which looks for a project file whose `main` points to the document and calls `evaluateBirdDocumentEligibility()`. While the server runs, the language client also registers the providers of the server for `bird2` documents, among them Format Document (`documentFormattingProvider`), hover, and inlay hints for AS numbers and function return types. Format Selection has a provider only in the extension host.
+Besides the language client, the extension registers its own providers in the extension host:
+
+- Format Document and Format Selection call `formatBirdConfig()` from `@birdcc/formatter`. The `formatter` options from `bird.config.json`, read by `loadBirdProjectConfigForFile()`, take precedence over extension settings and editor indentation. Format Selection keeps only the edits inside the selection.
+- Function return-type hover and inlay hints call `collectFunctionReturnHints()` from `@birdcc/core`.
+- Keyword hover calls `resolveKeywordHoverOnLine()` from the `@birdcc/lsp` library. While the language server is running for the file, keyword hover returns nothing.
+
+Every provider first applies `enforceLargeFileGuard()` and then the document admission check. The admission check looks for a project file whose `main` points to the document and calls `evaluateBirdDocumentEligibility()`.
+
+While the server runs, the language client also registers the providers of the server for `bird2` documents, among them Format Document (`documentFormattingProvider`), hover, and inlay hints for AS numbers and function return types. Format Selection has a provider only in the extension host.
 
 An arrow points from a caller to the module it calls.
 
@@ -372,7 +508,16 @@ flowchart LR
 
 ### Fallback validation [#fallback-validation]
 
-Fallback validation runs the BIRD binary on saved files and turns its output into diagnostics in the `bird2-fallback` collection with the source `bird -p`. A background validator exists while `bird2-lsp.enabled` is `false` or the client is in the `error` state. A second background validator covers files whose resource-level `enabled` is `false` while the server runs. Background validators check the active file when they start, and other files 800 ms after open, or after save while `bird2-lsp.validation.onSave` is `true`. The **BIRD2: Validate Active Document** command uses a separate validator that runs once on demand. Each run passes the same checks before `execFile()` starts the command without a shell. [Fallback validation](./editors/vscode.mdx#fallback-validation) on the VS Code page lists the command template rules.
+Fallback validation runs the BIRD binary on saved files and turns its output into diagnostics in the `bird2-fallback` collection with the source `bird -p`.
+
+The extension uses two background validators:
+
+- The first exists while `bird2-lsp.enabled` is `false` or the client is in the `error` state.
+- The second covers files whose resource-level `enabled` is `false` while the server runs.
+
+Background validators check the active file when they start. They check other files 800 ms after open, and 800 ms after save while `bird2-lsp.validation.onSave` is `true`.
+
+The **BIRD2: Validate Active Document** command uses a separate validator that runs once on demand. Each run passes the same checks before `execFile()` starts the command without a shell. [Fallback validation](./editors/vscode.mdx#fallback-validation) on the VS Code page lists the command template rules.
 
 An arrow points from a trigger or step to the step that follows it.
 

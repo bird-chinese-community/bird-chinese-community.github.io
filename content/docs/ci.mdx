@@ -4,7 +4,15 @@ description: Run birdcc lint, birdcc fmt --check and bird -p in GitHub Actions, 
 icon: Workflow
 ---
 
-[setup-birdcc](https://github.com/bird-chinese-community/setup-birdcc) is a composite GitHub Action. It checks out the repository, installs Node.js and pnpm, and can install BIRD 2 or BIRD 3, a Rust toolchain and the dependencies of the repository. The action does not run `birdcc`. The workflow runs the commands in its own steps. The release tag is `v1.0.0`.
+[setup-birdcc](https://github.com/bird-chinese-community/setup-birdcc) is a composite GitHub Action. The release tag is `v1.0.0`.
+
+The action does the following:
+
+- It checks out the repository.
+- It installs Node.js and pnpm.
+- It can install BIRD 2 or BIRD 3, a Rust toolchain and the dependencies of the repository.
+
+The action does not run `birdcc`. The workflow runs the commands in its own steps.
 
 ## Basic workflow [#basic-workflow]
 

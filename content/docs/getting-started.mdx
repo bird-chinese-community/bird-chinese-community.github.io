@@ -94,7 +94,9 @@ birdcc lint bird.conf
 WARNING sym/filter-required [file:///srv/bird/bird.conf] 10:19 Protocol 'upstream' references unknown filter 'peer_in'
 ```
 
-Each line shows the severity, the rule code, the file URI, the line and column, and the message. By default, the `sym`, `cfg`, `net` and `type` rules report warnings and the `bgp` and `ospf` rules report information, so this run exits with status 0. `birdcc lint` exits with status 1 when a diagnostic has severity `error` or when the command fails. [Linting](./linting.mdx) shows how to raise rule severities so that lint fails a CI job.
+Each line shows the severity, the rule code, the file URI, the line and column, and the message.
+
+By default, the `sym`, `cfg`, `net` and `type` rules report warnings and the `bgp` and `ospf` rules report information, so this run exits with status 0. `birdcc lint` exits with status 1 when a diagnostic has severity `error` or when the command fails. [Linting](./linting.mdx) shows how to raise rule severities so that lint fails a CI job.
 
 `birdcc lint` follows the `include` statements of the file. Add `--bird` to also run `bird -p` on the file.
 
