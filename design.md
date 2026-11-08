@@ -1,7 +1,7 @@
 ---
 name: birdcc-docs-design
 description: Presentation rules for the BIRDCC documentation site (docs articles, guide pages, the docs home, the language entry and the 404 page) and its link preview images. Readers are network operators and developers who read reference tables, copy commands and configuration, and compare options while they edit BIRD configuration files.
-version: 2026-11-08
+version: 2026-11-08.2
 ---
 
 # BIRDCC docs design
@@ -170,6 +170,22 @@ Minimal usage:
 - [SHOULD] Chinese text uses full-width punctuation and a space between Chinese and Latin text or numbers. Product, command, option and protocol names stay in Latin script.
 - [MUST] Text states only what the tools do in the documented version. Planned behavior and comparisons with other projects are not stated as facts.
 
+### Paragraphs and lists
+
+These rules follow the translation and typesetting rules of the BIRD Chinese documentation project (https://bird.xmsl.dev/pages/join-us.md) and apply to both languages.
+
+- [SHOULD] A paragraph covers one point and has at most three sentences: at most 100 characters in Chinese, at most 70 words in English. Split a longer paragraph where the subject changes, and put a blank line between the parts.
+- [SHOULD] Three or more parallel items become a list when the items are clauses or when a colon introduces them. A short series of names inside a sentence stays inline.
+- [SHOULD] Ordered actions become a numbered list or `Steps`; conditions and their results become a list or a table.
+- [SHOULD] Sentences use the active voice and name the actor: the tool, the command, the server or the reader. Chinese sentences avoid 被.
+
+### Chinese typesetting
+
+- [SHOULD] Parentheses around Latin text are half-width, with a space between a parenthesis and adjacent Chinese text and no space before punctuation: `入口文件 (entry file) 由 main 指定`, `内嵌提示 (inlay hint)。` Parentheses around Chinese text are full-width without spaces: `BIRD（默认 BIRD 2）`.
+- [SHOULD] The first occurrence of a translated term on a page carries the English term in parentheses: `语言服务器 (language server)`. Interface labels of VS Code and other tools keep their English label in parentheses: `格式化文档 (Format Document)`.
+- [SHOULD] Headings below the page title contain Chinese. A heading that names a command, a key or a file gives a Chinese name followed by the name in parentheses: ``检查配置 (`birdcc lint`)``. Product names without a Chinese name, such as Neovim or Helix, stay as they are.
+- [SHOULD] Chinese text is formal written language. It does not use 我们 or 你们, and it does not use 显然, 明显 or 不难看出.
+
 ## 7. Anti-patterns
 
 - [SHOULD] A centered hero with a card grid as the default page structure.
@@ -182,6 +198,8 @@ Minimal usage:
 - [SHOULD] The brand teal on links, buttons, headings or text in pages.
 - [SHOULD] Text that repeats a heading, or text that says what a page "lets you" do.
 - [SHOULD] Screenshots of code or configuration in place of code blocks.
+- [SHOULD] One paragraph that strings several points together: a mechanism, its limits, its options and an exception in one block of text.
+- [SHOULD] A list of options or conditions written as one sentence with commas and semicolons.
 
 ## 8. Implementation and integration
 
