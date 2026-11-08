@@ -1,0 +1,294 @@
+---
+title: CLI reference
+description: Commands, options, exit codes and JSON output of the birdcc command in @birdcc/cli 1.0.0.
+icon: Terminal
+---
+
+The `birdcc` command comes from the `@birdcc/cli` npm package and requires Node.js 22 or newer.
+
+```sh
+birdcc <command> [options]
+```
+
+| Command              | Description                                                              |
+| -------------------- | ------------------------------------------------------------------------ |
+| `birdcc lint [file]` | Lint a configuration and its include graph. See [`lint`](#lint).         |
+| `birdcc fmt [file]`  | Check or rewrite the formatting of one file. See [`fmt`](#fmt).          |
+| `birdcc init [root]` | Detect the entry file and write `bird.config.json`. See [`init`](#init). |
+| `birdcc lsp --stdio` | Start the language server on stdin and stdout. See [`lsp`](#lsp).        |
+
+## Global options [#global-options]
+
+Every command accepts these options:
+
+| Option            | Description                                                                               |
+| ----------------- | ----------------------------------------------------------------------------------------- |
+| `-v`, `--verbose` | Print progress and timing to stderr. Each line starts with `[verbose]`.                   |
+| `--debug-json`    | Add debug fields to the JSON output of `lint` and `fmt`. See [JSON output](#json-output). |
+| `-h`, `--help`    | Print the help text. `birdcc <command> --help` prints the options of one command.         |
+
+- `birdcc` has no `--version` option, and `-v` means `--verbose`. `npm ls --global @birdcc/cli` prints the installed version of a global installation.
+- An unknown option prints a `CACError` stack trace and exits with status 1.
+- An unknown command name prints nothing and exits with status 0. Run `birdcc --help` for the list of commands.
+
+## lint [#lint]
+
+```sh
+birdcc lint [file] [options]
+```
+
+| Option                         | Default                                 | Description                                                                                         |
+| ------------------------------ | --------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `--format <format>`            | `text`                                  | `text` or `json`. Other values make the command exit with status 1.                                 |
+| `--json`                       | off                                     | Same as `--format json`. It has priority over `--format`.                                           |
+| `--bird`                       | off                                     | Also run the BIRD validation command. `linter.withBird: true` turns this on from the configuration. |
+| `--cross-file`                 | on                                      | Analyze the include graph. `--no-cross-file` or `crossFile.enabled: false` turns it off.            |
+| `--include-max-depth <n>`      | `crossFile.maxDepth`, else 16           | Maximum include nesting depth. The value must be a positive integer.                                |
+| `--include-max-files <n>`      | `crossFile.maxFiles`, else 256          | Maximum number of files in the include graph. The value must be a positive integer.                 |
+| `--validate-command <command>` | see [BIRD validation](#bird-validation) | Command template for `--bird`.                                                                      |
+
+[Lint configurations](../linting.mdx) shows the command in use.
+
+### Target files
+
+- With `file`, birdcc lints that file. It reads the settings from the nearest `bird.config.json` in the directory of the file or in a parent directory.
+- Without `file`, birdcc searches for `bird.config.json` from the current directory upward. It lints the file that `main` names, or `bird.conf` when `main` is not set.
+- When the configuration sets `workspaces`, birdcc lints the `bird.conf` of every matched directory. When no directory matches, the command fails.
+- Without a file argument and without a configuration file, the command fails.
+
+### Cross-file analysis
+
+- A file that contains an `include` statement is the entry of the analyzed include graph.
+- For any other file, birdcc runs entry detection in the directory of the file and in up to four parent directories. It analyzes the include graph of the detected entry file, or of the file itself when detection finds no entry file.
+- The output contains the diagnostics of that include graph. When the detected entry file does not include the file, the output contains no diagnostics for the file. Use `--no-cross-file` to lint such a file on its own.
+- An `include` path resolves relative to the including file first. Then birdcc tries the detected project directory and the directory of the entry file, followed by each `includePaths` entry. When the linted file contains an `include`, birdcc tries only the directory of that file before `includePaths`.
+- birdcc skips include targets outside the workspace root and reports them as `sym/undefined`, unless `crossFile.externalIncludes` is `true`. The workspace root is the directory of the linted file when the file contains an `include` or when detection finds no entry file. In all other cases, it is the detected project directory.
+- The include graph has these default limits: 16 levels, 256 files, 2 MiB for each file and 16 MiB in total. birdcc skips an include over a limit and reports it as `sym/undefined`. A target file over the size limit makes the command fail.
+
+### Text output
+
+Each diagnostic is one line with the severity, the rule code, the file URI, the line and column (both start at 1), and the message. Diagnostics from BIRD validation have no file URI.
+
+```text
+WARNING sym/filter-required [file:///srv/bird/bird.conf] 10:19 Protocol 'upstream' references unknown filter 'peer_in'
+```
+
+Without diagnostics, the command prints `No problems found during linting`. The `sym`, `cfg`, `net` and `type` rules report `warning` by default, and the `bgp` and `ospf` rules report `info`. See [Lint rules](./rules.mdx).
+
+### BIRD validation [#bird-validation]
+
+`--bird` runs a validation command after the static analysis and adds its errors to the output. birdcc uses the first command template from this list:
+
+1. `--validate-command`
+2. `bird.validateCommand` in `bird.config.json`
+3. `bird.binaryPath`, as `<binaryPath> -p -c {file}`
+4. The `BIRD_BIN` environment variable, as `"<BIRD_BIN>" -p -c {file}`
+5. `bird -p -c {file}`
+
+```sh
+BIRD_BIN=/usr/sbin/bird birdcc lint bird.conf --bird
+birdcc lint bird.conf --bird --validate-command "/usr/sbin/bird -p -c {file}"
+```
+
+- birdcc splits the template at whitespace. Single and double quotes group words.
+- birdcc replaces `{file}` with the absolute path of the linted file. When the template has no `{file}`, birdcc adds the path at the end.
+- birdcc runs the command without a shell, in the directory of the linted file, with a timeout of 10 seconds.
+- birdcc does not run the command when the file path contains `;`, `|`, `&`, `$`, `<`, `>`, a backtick or a control character.
+
+birdcc converts the stderr lines of the command into diagnostics:
+
+| Code                | Severity | Source                                                                                                                                                                                                               |
+| ------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `bird/parse-error`  | `error`  | A stderr line in the form `<file>:<line>:<column> <message>`, `Parse error <file>, line <line>: <message>` or `<file>, line <line>:<column> <message>`. Other non-empty stderr lines also give this code, at line 1. |
+| `bird/runner-error` | `error`  | An unsafe file path, a template with an unclosed quote, a command that cannot start or times out, or a non-zero exit status without stderr output.                                                                   |
+
+## fmt [#fmt]
+
+```sh
+birdcc fmt [file] [options]
+```
+
+| Option              | Default                           | Description                                                                                                    |
+| ------------------- | --------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `--check`           | off                               | Report whether the file needs formatting and leave it unchanged. Without `--write`, the command does the same. |
+| `--write`           | off                               | Write the formatted text back to the file. You cannot use it together with `--check`.                          |
+| `--engine <engine>` | `formatter.engine`, else `dprint` | `dprint` or `builtin`. The value is not case-sensitive.                                                        |
+| `--json`            | off                               | Print `{ "changed", "filePath" }` instead of a message.                                                        |
+
+```sh
+birdcc fmt bird.conf --check
+birdcc fmt bird.conf --write --engine builtin
+```
+
+- `fmt` formats one file. Without `file`, it uses `main` from the nearest `bird.config.json`, or `bird.conf` when `main` is not set. When the configuration sets `workspaces`, pass a file. A directory argument is an error.
+- The formatting options come from the [`formatter` section](./configuration.mdx#formatter) of `bird.config.json`: `indentSize` (default 2), `lineWidth` (80), `useTabs` (`false`) and `safeMode` (`true`).
+- When neither `--engine` nor `formatter.engine` is set and the `dprint` engine fails, birdcc formats with the `builtin` engine. With an explicit engine, birdcc reports the failure.
+- `--write` replaces the file through a temporary file and a rename. It does not touch a file that is already formatted.
+
+| Result                   | Message                                                                        | Exit status |
+| ------------------------ | ------------------------------------------------------------------------------ | ----------- |
+| Check, no changes        | `Format check passed — all files look good` (stdout)                           | 0           |
+| Check, changes needed    | ``Format check failed. Run `birdcc fmt <file> --write` to fix.`` (stderr)      | 1           |
+| `--write`, file changed  | `Files formatted successfully`                                                 | 0           |
+| `--write`, no changes    | `All files are already properly formatted`                                     | 0           |
+| `--check` with `--write` | `--check and --write cannot be used together` (stderr)                         | 1           |
+| Unknown engine           | `Invalid formatter engine: "<engine>" (choose from: dprint, builtin)` (stderr) | 1           |
+
+[Format configurations](../formatting.mdx) describes the two engines and safe mode.
+
+## init [#init]
+
+```sh
+birdcc init [root] [options]
+```
+
+| Option                 | Default            | Description                                                                                    |
+| ---------------------- | ------------------ | ---------------------------------------------------------------------------------------------- |
+| `--config-name <name>` | `bird.config.json` | Name of the file to write.                                                                     |
+| `--dry-run`            | off                | Print the candidates, the conclusion and the configuration that `init` would write.            |
+| `--write`              | off                | Write the configuration file.                                                                  |
+| `--force`              | off                | Overwrite an existing configuration file.                                                      |
+| `--json`               | off                | Print the detection result as JSON. birdcc writes the file only with `--write`.                |
+| `--max-depth <n>`      | 8                  | Directory depth to scan.                                                                       |
+| `--max-files <n>`      | 20000              | Number of files to scan.                                                                       |
+| `--ignore <patterns>`  | none               | Comma-separated directory names to skip in addition to the defaults. Names must match exactly. |
+
+```sh
+birdcc init --dry-run
+birdcc init --write
+```
+
+- `root` is the current directory by default. Detection scans `.conf` files. It skips hidden directories and `node_modules`, `dist`, `build`, `target`, `vendor`, `coverage`, `__tests__`, `test`, `tests`, `fixtures`, `examples`, `example` and `docs`.
+- One entry file gives `"main": "./<path>"`. Several independent entry files give `"workspaces": ["<dir>/", ...]`.
+- The file always contains `$schema`. It also contains `formatter.indentSize` (2, 4 or 8) when birdcc detects the indentation in up to 5 entry files.
+- birdcc writes the file when you give `--write` or when stdout is not a terminal (CI jobs, pipes, redirects). In a terminal without `--write`, it prints the detection result and `Run with --write to create bird.config.json`.
+- When the target file exists and sets `main` or `workspaces`, `init` prints a notice and exits with status 0 without detection. `--force` overrides this check. The check also applies to `--dry-run` and `--json`.
+
+[Entry detection](../project-configuration.mdx#entry-detection) explains how birdcc scores the candidates.
+
+## lsp [#lsp]
+
+```sh
+birdcc lsp --stdio
+```
+
+`birdcc lsp` starts the `@birdcc/lsp` language server on stdin and stdout. `--stdio` is required. Without it, the command prints ``Only `birdcc lsp --stdio` is currently supported`` and exits with status 1. The [language server reference](./language-server.mdx) lists the capabilities and settings.
+
+## Project configuration [#project-configuration]
+
+birdcc reads `bird.config.json`, or its alias `birdcc.config.json`, from the directory of the target file or the nearest parent directory that has one. The search continues to the root of the file system. When both names exist in one directory, birdcc uses `bird.config.json`.
+
+| Key                                                 | Used by                                                               |
+| --------------------------------------------------- | --------------------------------------------------------------------- |
+| `main`, `workspaces`                                | `lint` and `fmt` without a file argument. `fmt` rejects `workspaces`. |
+| `includePaths`                                      | Include resolution of `lint`, relative to the configuration file.     |
+| `crossFile.*`                                       | `lint`: `enabled`, the include graph limits and `externalIncludes`.   |
+| `linter.enabled`, `linter.withBird`, `linter.rules` | `lint`. `"enabled": false` turns the static analysis off.             |
+| `bird.validateCommand`, `bird.binaryPath`           | `lint --bird`.                                                        |
+| `formatter.*`                                       | `fmt`.                                                                |
+
+An unknown key inside `crossFile`, `formatter`, `linter` or `bird` is an error. The command prints `Invalid BIRD project config at <path>: <key>: <message>` and exits with status 1. The [configuration reference](./configuration.mdx) describes every key.
+
+## Exit codes [#exit-codes]
+
+| Command | Status 0                                                                                       | Status 1                                                                                                                                                              |
+| ------- | ---------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `lint`  | No diagnostic has the severity `error`.                                                        | A diagnostic has the severity `error`, or the command failed: no target file, unreadable file, invalid configuration, invalid option value, file over the size limit. |
+| `fmt`   | `--write` completed, or the check found nothing to change.                                     | The check found changes, or the command failed.                                                                                                                       |
+| `init`  | The configuration was written or printed, or an existing configuration with an entry was kept. | Without `--dry-run` or `--json`: no entry file was detected, no entry file could be selected safely, or the file exists and `--force` is not given.                   |
+| `lsp`   | The client sent `shutdown` before `exit` or before it closed stdin.                            | `--stdio` is missing, or the client sent `exit` or closed stdin without `shutdown`.                                                                                   |
+
+## JSON output [#json-output]
+
+### lint --format json
+
+`birdcc lint --format json` and `birdcc lint --json` print one object:
+
+| Field         | Type   | Description                                                                                                                                                                                                             |
+| ------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `diagnostics` | array  | The diagnostics. The next table lists their fields.                                                                                                                                                                     |
+| `files`       | number | Number of target files.                                                                                                                                                                                                 |
+| `rules`       | number | Number of keys in `linter.rules`.                                                                                                                                                                                       |
+| `errors`      | number | Number of diagnostics with the severity `error`.                                                                                                                                                                        |
+| `warnings`    | number | Number of diagnostics with the severity `warning`. `info` diagnostics are not counted.                                                                                                                                  |
+| `elapsedMs`   | number | Run time in milliseconds.                                                                                                                                                                                               |
+| `debug`       | object | Only with `--debug-json`: `configPath`, `targetFiles`, `includeMaxDepth` and `includeMaxFiles` from the command line, and `validateCommand` from the option or the configuration. Values that are not set are left out. |
+
+| Diagnostic field              | Type   | Description                                                                                                                                                                                               |
+| ----------------------------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `code`                        | string | Rule code such as `sym/filter-required`, or `bird/parse-error` and `bird/runner-error` from BIRD validation.                                                                                              |
+| `message`                     | string | Diagnostic text.                                                                                                                                                                                          |
+| `severity`                    | string | `error`, `warning` or `info`.                                                                                                                                                                             |
+| `source`                      | string | `parser`, `core`, `linter` or `bird`.                                                                                                                                                                     |
+| `range`                       | object | `line`, `column`, `endLine` and `endColumn`. All values start at 1.                                                                                                                                       |
+| `uri`                         | string | `file://` URI of the file. BIRD validation diagnostics have no `uri`.                                                                                                                                     |
+| `url`                         | string | `https://github.com/bird-chinese-community/BIRD-LSP/blob/main/docs/rules/<code>.md`, built from the rule code. The repository has no page at this address; [Lint rules](./rules.mdx) describes each rule. |
+| `help`                        | string | The same text as `message`.                                                                                                                                                                               |
+| `causes`, `related`, `labels` | array  | Always empty.                                                                                                                                                                                             |
+
+```json
+{
+  "diagnostics": [
+    {
+      "code": "sym/filter-required",
+      "message": "Protocol 'upstream' references unknown filter 'peer_in'",
+      "severity": "error",
+      "source": "linter",
+      "range": { "line": 10, "column": 19, "endLine": 10, "endColumn": 26 },
+      "uri": "file:///srv/bird/bird.conf",
+      "causes": [],
+      "related": [],
+      "labels": [],
+      "url": "https://github.com/bird-chinese-community/BIRD-LSP/blob/main/docs/rules/sym/filter-required.md",
+      "help": "Protocol 'upstream' references unknown filter 'peer_in'"
+    }
+  ],
+  "files": 1,
+  "rules": 4,
+  "errors": 1,
+  "warnings": 0,
+  "elapsedMs": 48
+}
+```
+
+### fmt --json
+
+```json
+{
+  "changed": true,
+  "filePath": "/srv/bird/bird.conf"
+}
+```
+
+`--debug-json` adds `elapsedMs` and `engine`. `engine` is `"default"` when neither `--engine` nor `formatter.engine` is set. It also adds `indentSize` and `lineWidth` when the configuration sets them.
+
+### init --json
+
+`birdcc init --json` prints the detection result:
+
+| Field        | Type           | Description                                                                                                                                                        |
+| ------------ | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `kind`       | string         | `single`, `single-ambiguous`, `monorepo-multi-entry`, `monorepo-multi-role` or `not-found`.                                                                        |
+| `confidence` | number         | 0 to 100.                                                                                                                                                          |
+| `primary`    | object or null | The candidate with the highest rank.                                                                                                                               |
+| `candidates` | array          | Each candidate has `path`, `score`, `signals` (`name`, `delta`), `role`, `visitedCount`, `missingIncludes`, `qualified`, `declarationKinds` and `includedByCount`. |
+| `warnings`   | array          | Each warning has `code`, `message` and an optional `path`.                                                                                                         |
+
+When `init` keeps an existing configuration, the output is one line: `{"skipped":true,"reason":"Config already exists with entry configuration","configPath":"<path>"}`.
+
+### Schemas
+
+`@birdcc/cli` exports types and zod 4 schemas for these objects:
+
+- `@birdcc/cli/output-types`: TypeScript types, for example `BirdLintJsonOutput`, `BirdLintDiagnostic`, `BirdFmtJsonOutput` and `BirdInitJsonOutput`.
+- `@birdcc/cli/output-schemas`: `BirdLintJsonOutputSchema`, `BirdLintDiagnosticSchema`, `BirdLintDiagnosticWithExtrasSchema`, `BirdFmtJsonOutputSchema`, `BirdInitJsonOutputSchema` and `InitCandidateJsonSchema`. `BirdInitJsonOutputSchema` validates the detection result, not the `skipped` object.
+
+```ts
+import { readFile } from "node:fs/promises";
+import { BirdLintJsonOutputSchema } from "@birdcc/cli/output-schemas";
+
+const report = BirdLintJsonOutputSchema.parse(
+  JSON.parse(await readFile("birdcc-lint.json", "utf8")),
+);
+console.log(`${report.errors} errors, ${report.warnings} warnings`);
+```

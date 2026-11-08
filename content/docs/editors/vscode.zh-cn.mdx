@@ -1,0 +1,214 @@
+---
+title: VS Code
+description: 安装和配置 BIRD2 LSP，这是用于 BIRD 2 与 BIRD 3 配置文件的 VS Code 扩展。
+icon: Code
+---
+
+BIRD2 LSP（`BIRDCC.bird2-lsp`）内置语言服务器 `@birdcc/lsp`，并用 VS Code 自带的 JavaScript 运行时启动它（`ELECTRON_RUN_AS_NODE=1`），不需要安装 Node.js 或 `@birdcc/cli`。语法高亮由另一个扩展 BIRD2 Configuration（`BIRDCC.vscode-bird2-conf`）提供。
+
+## 安装
+
+<Tabs items={["VS Code Marketplace", "Open VSX", "VSIX 文件"]}>
+
+<Tab value="VS Code Marketplace">
+
+在扩展视图中搜索 `BIRD2 LSP`，或打开 [BIRDCC.bird2-lsp](https://marketplace.visualstudio.com/items?itemName=BIRDCC.bird2-lsp)。也可以在终端中安装：
+
+```sh
+code --install-extension BIRDCC.bird2-lsp
+```
+
+</Tab>
+
+<Tab value="Open VSX">
+
+VSCodium 等从 Open VSX 安装扩展的编辑器使用 [BIRDCC/bird2-lsp](https://open-vsx.org/extension/BIRDCC/bird2-lsp)。
+
+</Tab>
+
+<Tab value="VSIX 文件">
+
+机器无法访问扩展市场时，从 [GitHub Releases](https://github.com/bird-chinese-community/BIRD-LSP/releases) 中标签为 `bird2-lsp-v<version>` 的发布下载 `bird2-lsp.vsix`，然后安装这个文件：
+
+```sh
+code --install-extension bird2-lsp.vsix
+```
+
+</Tab>
+
+</Tabs>
+
+## 扩展包
+
+BIRD2 Extension Pack（`BIRDCC.bird2-extension-pack`）本身不含代码，安装它会安装以下扩展：
+
+| 扩展                | ID                         | 提供的功能                                                                                                                        |
+| ------------------- | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| BIRD2 LSP           | `BIRDCC.bird2-lsp`         | 语言服务器功能、格式化、代码片段和 `bird -p` 回退校验。                                                                           |
+| BIRD2 Configuration | `BIRDCC.vscode-bird2-conf` | 语法高亮用的 TextMate 语法，来自 [BIRD-tm-language-grammar](https://github.com/bird-chinese-community/BIRD-tm-language-grammar)。 |
+
+```sh
+code --install-extension BIRDCC.bird2-extension-pack
+```
+
+这个扩展包也发布在 [Open VSX](https://open-vsx.org/extension/BIRDCC/bird2-extension-pack)。每个 `bird2-lsp-v<version>` 发布都附带 `bird2-extension-pack.vsix`。扩展包按 ID 列出成员扩展，所以安装这个文件时，编辑器仍会从扩展市场下载两个成员扩展。
+
+## 环境要求
+
+- VS Code 1.100 或更新版本。
+- 回退校验会运行 BIRD 程序（默认命令为 `bird -p -c {file}`），需要本机装有 BIRD 2 或 BIRD 3。没有 BIRD 时，校验器把命令失败作为一条错误显示在文件第一行。语言服务器的功能不使用 BIRD 程序。
+- 受信任的工作区。扩展清单没有声明支持不受信任的工作区，所以在受限模式（Restricted Mode）下，VS Code 会一直禁用这个扩展，直到你信任该工作区。
+
+## 文件关联 [#file-association]
+
+扩展为以下文件注册语言 ID `bird2`：
+
+- 扩展名：`.conf`、`.bird`、`.bird2`、`.bird3`、`.bird2.conf`、`.bird3.conf`
+- 文件名：`bird.conf`、`bird2.conf`
+
+其他软件也使用 `.conf` 扩展名。分析、格式化、类型提示、关键字悬停提示和回退校验只作用于满足以下任一条件的文件：
+
+1. `bird.config.json`（或 `birdcc.config.json`）中的 `main` 指向该文件。
+2. 文件名是 `bird.conf`、`bird2.conf`、`bird3.conf` 或 `bird6.conf`，可以带一个前导点，不区分大小写。
+3. 解析器在文件中找到至少一个 BIRD 声明，例如 `router id`、`include`、`define`、`filter`、`function`、`template`、`table`、`attribute`，或已知 BIRD 协议类型的 `protocol`。
+
+其他文件（例如不含 BIRD 声明的 `nginx.conf`）仍处于 `bird2` 语言模式，但不会得到诊断，也不会被格式化。
+
+## 功能
+
+大部分功能来自语言服务器。[语言服务器参考](../reference/language-server.mdx)说明了它的能力、设置和限制。
+
+| 功能         | 行为                                                                                                                                                                                                                                                                                                    |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 诊断         | 32 条 lint 规则，分为 `sym`、`cfg`、`net`、`type`、`bgp`、`ospf` 六组，在整个 `include` 图上分析。默认情况下，`sym`、`cfg`、`net` 和 `type` 规则报告 warning，`bgp` 和 `ospf` 规则报告 info。`bird.config.json` 中的 `linter.rules` 可以修改级别或关闭规则，见[规则](../reference/rules.mdx#severity)。 |
+| 补全         | 14 个关键字、4 个语句模板（`include`、`define`、`router id`、`protocol bgp`）、`include` 图中声明的名称，以及 `include` 语句已经用过的路径。在 `import filter` 和 `export filter` 之后补全 filter 名称，在 `table` 之后补全 table 名称，在 `from` 之后补全 template 名称。触发字符为空格和 `.`。        |
+| 悬停提示     | 关键字文档（附 BIRD User's Guide 链接），以及已声明符号的详细信息。                                                                                                                                                                                                                                     |
+| 跳转到定义   | 把名称解析到 `include` 图中同名的 protocol、template、filter、function、table 或 `define` 常量的声明。                                                                                                                                                                                                  |
+| 查找引用     | 返回该声明，以及引用某个 template 的 `from` 子句。filter、function、table、protocol 和常量的其他使用位置不会列出。                                                                                                                                                                                      |
+| 大纲         | 顶层声明的文档符号。                                                                                                                                                                                                                                                                                    |
+| 格式化       | 格式化文档（Format Document）和格式化选定内容（Format Selection）用 `@birdcc/formatter` 格式化，引擎为 `dprint`（默认）或 `builtin`，安全模式默认开启。格式化选定内容会格式化整个文件，只应用选区内的修改。`bird.config.json` 中的 `formatter` 选项优先于扩展设置和编辑器缩进设置。                     |
+| 函数返回类型 | 悬停在函数名上时显示声明的或推断出的返回类型，以及最多五个 return 表达式。内嵌提示在函数名后显示类型。                                                                                                                                                                                                  |
+| ASN 信息     | AS 号的补全、悬停提示和内嵌提示，数据来自 `@birdcc/intel` 附带的 BGP.Tools OpenDB 快照。扩展不会为此发出网络请求。                                                                                                                                                                                      |
+| 代码片段     | 40 个代码片段，见[代码片段](#snippets)。                                                                                                                                                                                                                                                                |
+| 回退校验     | 语言服务器关闭或失败时，对已保存的文件运行 `bird -p`，见[回退校验](#fallback-validation)。                                                                                                                                                                                                              |
+
+扩展宿主还注册了自己的提供程序：格式化文档、格式化选定内容、函数返回类型的悬停提示与内嵌提示，以及语言服务器没有处理某个文件时该文件的关键字悬停提示。回退校验和状态栏项也由扩展宿主运行。
+
+## 设置 [#settings]
+
+所有设置都在 `bird2-lsp` 节下：
+
+| 设置                                     | 类型                   | 默认值                                                   | 说明                                                                                                                                                |
+| ---------------------------------------- | ---------------------- | -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `bird2-lsp.enabled`                      | `boolean`              | `true`                                                   | 运行语言服务器。该值为 `false` 的文件得不到语言服务器功能，改由回退校验检查。只要有一个工作区文件夹或打开的 `bird2` 文件为 `true`，服务器就会运行。 |
+| `bird2-lsp.serverPath`                   | `string` 或 `string[]` | `["birdcc", "lsp", "--stdio"]`                           | 语言服务器命令。默认值启动内置的服务器。其他值会运行该命令，例如 `["/usr/local/bin/birdcc", "lsp", "--stdio"]`。                                    |
+| `bird2-lsp.trace.server`                 | `string`               | `"off"`                                                  | 在 `BIRD2 LSP` 输出通道中记录协议消息：`off`、`messages` 或 `verbose`。                                                                             |
+| `bird2-lsp.hiddenErrors`                 | `string[]`             | `["textDocument/definition", "textDocument/references"]` | 这些 LSP 请求失败时不弹出通知。                                                                                                                     |
+| `bird2-lsp.validation.enabled`           | `boolean`              | `true`                                                   | 允许回退校验。                                                                                                                                      |
+| `bird2-lsp.validation.command`           | `string`               | `"bird -p -c {file}"`                                    | 回退校验命令。`{file}` 会被替换为已保存文件的路径。                                                                                                 |
+| `bird2-lsp.validation.onSave`            | `boolean`              | `true`                                                   | 保存文件时运行回退校验。                                                                                                                            |
+| `bird2-lsp.validation.timeout`           | `number`               | `30000`                                                  | 回退校验的超时时间，单位为毫秒，取值 1000 到 120000。                                                                                               |
+| `bird2-lsp.performance.maxFileSizeBytes` | `number`               | `2097152`                                                | 文件大小上限，单位为字节，取值 65536 到 104857600。超过上限的文件不会得到扩展的格式化、类型提示、关键字悬停提示和回退校验，语言服务器也不分析它们。 |
+| `bird2-lsp.performance.startupTimeoutMs` | `number`               | `10000`                                                  | 语言服务器的启动时限，单位为毫秒，取值 1000 到 120000。超时后，扩展停止服务器并切换到回退校验。                                                     |
+| `bird2-lsp.formatter.engine`             | `string`               | `"dprint"`                                               | 格式化引擎：`dprint` 或 `builtin`。                                                                                                                 |
+| `bird2-lsp.formatter.safeMode`           | `boolean`              | `true`                                                   | 格式化结果的声明或解析错误与输入不一致时，拒绝该结果。                                                                                              |
+| `bird2-lsp.typeHints.enabled`            | `boolean`              | `true`                                                   | 函数返回类型的悬停提示和内嵌提示。                                                                                                                  |
+| `bird2-lsp.typeHints.hover.enabled`      | `boolean`              | `true`                                                   | 悬停在函数名上时显示返回类型详情。                                                                                                                  |
+| `bird2-lsp.typeHints.inlay.enabled`      | `boolean`              | `true`                                                   | 在函数名后显示返回类型的内嵌提示。                                                                                                                  |
+| `bird2-lsp.intel.enabled`                | `boolean`              | `true`                                                   | ASN 补全、悬停提示和内嵌提示。                                                                                                                      |
+| `bird2-lsp.intel.inlayHints`             | `boolean`              | `true`                                                   | 显示国家旗帜和 AS 号的 ASN 内嵌提示。                                                                                                               |
+| `bird2-lsp.intel.completion`             | `boolean`              | `true`                                                   | ASN 补全。                                                                                                                                          |
+| `bird2-lsp.intel.hover`                  | `boolean`              | `true`                                                   | 悬停时显示 ASN 详情。                                                                                                                               |
+
+修改 `serverPath` 或 `trace.server` 会重启语言服务器，修改 `enabled` 会启动或停止语言服务器。`serverPath`、`trace.server` 和 `validation.command` 的作用域为 `machine-overridable`，`performance.startupTimeoutMs` 为 `window`，其余设置为 `resource`，所以可以按工作区文件夹分别设置。扩展把 `bird2` 语言的 `editor.defaultFormatter` 设为 `birdcc.bird2-lsp`。
+
+例如，下面的设置使用不在 `PATH` 中的 BIRD 程序，并关闭 ASN 内嵌提示：
+
+```json title="settings.json"
+{
+  "bird2-lsp.validation.command": "/usr/sbin/bird -p -c {file}",
+  "bird2-lsp.intel.inlayHints": false
+}
+```
+
+## 命令 [#commands]
+
+命令位于命令面板的 `BIRD2` 分类下：
+
+| 命令                            | ID                                 | 作用                                                                                                                 |
+| ------------------------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| BIRD2: Restart Language Server  | `bird2-lsp.restartLanguageServer`  | 停止并重新启动语言服务器。                                                                                           |
+| BIRD2: Enable Language Server   | `bird2-lsp.enableLanguageServer`   | 把 `bird2-lsp.enabled` 设为 `true`，写入当前文件所在工作区文件夹的设置；没有时写入工作区设置，再没有时写入用户设置。 |
+| BIRD2: Disable Language Server  | `bird2-lsp.disableLanguageServer`  | 在同一位置把 `bird2-lsp.enabled` 设为 `false`。                                                                      |
+| BIRD2: Validate Active Document | `bird2-lsp.validateActiveDocument` | 对当前文件运行回退校验。文件未保存时，确认后先保存。                                                                 |
+| BIRD2: Format Active Document   | `bird2-lsp.formatActiveDocument`   | 运行格式化文档。                                                                                                     |
+| BIRD2: Open Extension Settings  | `bird2-lsp.openSettings`           | 打开只显示本扩展设置的设置编辑器。                                                                                   |
+| BIRD2: Show Output Channel      | `bird2-lsp.showOutputChannel`      | 显示 `BIRD2 LSP` 输出通道。                                                                                          |
+| BIRD2: Open Documentation       | `bird2-lsp.showDocumentation`      | 打开扩展在 GitHub 上的包页面。                                                                                       |
+| BIRD2: Reload Configuration     | `bird2-lsp.reloadConfiguration`    | 重新读取扩展设置。                                                                                                   |
+
+Validate Active Document 和 Format Active Document 也出现在 `bird2` 文件的编辑器右键菜单中。对于其他文件，命令面板不显示这两个命令。
+
+## 代码片段 [#snippets]
+
+扩展为 `bird2` 语言提供 40 个代码片段。每个代码片段的第一个前缀以 `bird-` 开头，大多数还有较短的别名，例如 `bgp`、`ospf`、`filter` 和 `if`。
+
+| 分组     | 数量 | 前缀                                                                                                                                                                                                                                                                                                        |
+| -------- | ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 全局语句 | 7    | `bird-dir-router-id`、`bird-dir-include`、`bird-var-define`、`bird-dir-log`、`bird-dir-timebase`、`bird-dir-graceful-restart`、`bird-dir-watchdog`                                                                                                                                                          |
+| 协议     | 14   | `bird-proto-tmpl`、`bird-proto-from-tmpl`、`bird-proto-device`、`bird-proto-kernel`、`bird-proto-static`、`bird-proto-direct`、`bird-proto-pipe`、`bird-proto-bgp`、`bird-proto-bgp-full`、`bird-proto-bgp-rr-client`、`bird-proto-bgp-confed`、`bird-proto-ospf`、`bird-proto-ospf-area`、`bird-proto-rip` |
+| 过滤器   | 8    | `bird-filter-simple`、`bird-filter-block`、`bird-filter-prefix`、`bird-filter-case`、`bird-filter-community`、`bird-filter-as-path`、`bird-filter-rpki`、`bird-filter-large-community`                                                                                                                      |
+| 函数     | 5    | `bird-func`、`bird-func-prepend`、`bird-func-community`、`bird-func-net-match`、`bird-func-metric`                                                                                                                                                                                                          |
+| 集合     | 3    | `bird-set-prefix`、`bird-set-community`、`bird-set-aspath`                                                                                                                                                                                                                                                  |
+| 控制流   | 3    | `bird-flow-if`、`bird-flow-case`、`bird-flow-for`                                                                                                                                                                                                                                                           |
+
+## 回退校验 [#fallback-validation]
+
+回退校验对已保存的文件运行 `bird2-lsp.validation.command`，把输出显示为来源为 `bird -p` 的诊断。它在以下情况下运行：
+
+- 用 `bird2-lsp.enabled: false` 关闭了语言服务器（全局关闭或只对该文件关闭）。
+- 语言服务器没有在 `bird2-lsp.performance.startupTimeoutMs` 内启动，或因错误停止。
+- 运行 **BIRD2: Validate Active Document** 时按需运行，语言服务器运行期间也可以使用。
+
+前两种情况下，回退校验启动时会校验当前文件。其他文件在打开后 800 毫秒校验。`bird2-lsp.validation.onSave` 为 `true` 时，每次保存后 800 毫秒也会校验。编辑文件会清除它的回退诊断，直到下次保存。
+
+只有满足以下全部条件时才会运行校验：
+
+- `bird2-lsp.validation.enabled` 为 `true`。
+- 工作区受信任。
+- 文件已保存。
+- 打开了文件夹时，文件位于某个工作区文件夹内。
+- 文件大小不超过 `bird2-lsp.performance.maxFileSizeBytes`。
+- 文件满足[文件关联](#file-association)中的任一条件。
+- 在 macOS 和 Linux 上，文件不是所有用户都可写。
+
+运行命令模板之前，扩展会先检查它：
+
+- 模板必须把 `{file}` 作为一个独立参数：`bird -p -c {file}` 可以通过，`bird -p --config={file}` 会被拒绝。
+- 含有 shell 元字符 `;`、`&`、`|`、`` ` ``、`$`、`<` 或 `>` 时拒绝。
+- 含有环境变量展开（`${env:NAME}`、`%NAME%`）时拒绝。
+- 参数中含有 NUL、回车或换行字符时拒绝。
+- 第一个词不能是 shell（`bash`、`sh`、`zsh`、`fish`、`cmd`、`powershell`、`pwsh`）。
+
+扩展不经过 shell 运行命令，运行时间超过 `bird2-lsp.validation.timeout` 毫秒时停止它。`bird -p -c {file}` 以外的命令需要你在对话框中确认后才会运行，每个会话确认一次。`bird.config.json` 中的 `bird.validateCommand` 用于 `birdcc lint` 的 `bird -p` 检查，扩展不读取它。
+
+## 状态栏
+
+状态栏项显示语言服务器的状态。点击它会执行表中对应的操作。
+
+| 文本              | 状态                                        | 点击后的操作   |
+| ----------------- | ------------------------------------------- | -------------- |
+| `BIRD2: LSP`      | 语言服务器正在运行。                        | 重启服务器。   |
+| `BIRD2: Starting` | 语言服务器正在启动。                        | 显示输出通道。 |
+| `BIRD2: Stopping` | 语言服务器正在停止。                        | 显示输出通道。 |
+| `BIRD2: Idle`     | 语言服务器没有运行。                        | 重启服务器。   |
+| `BIRD2: Error`    | 语言服务器启动失败，或因错误停止。          | 显示输出通道。 |
+| `BIRD2: Fallback` | 当前文件的 `bird2-lsp.enabled` 为 `false`。 | 校验当前文件。 |
+
+## 项目配置
+
+语言服务器从每个文件所在目录向上查找 `bird.config.json`，并使用其中的 `main`、`workspaces`、`includePaths`、`crossFile`、`linter.enabled`、`linter.rules` 和 `formatter`。`birdcc.config.json` 作为别名读取。没有项目配置文件时，服务器在工作区文件夹中探测入口文件，并从它开始分析 `include` 图。通知会显示探测到的入口文件，例如 `Auto-detected BIRD entry: bird.conf (100% confidence).`。服务器找到多个入口文件或只有低置信度的候选时，通知会建议运行 `birdcc init`。[项目配置](../project-configuration.mdx)说明了文件格式和[入口文件探测](../project-configuration.mdx#entry-detection)。
+
+## 日志与问题
+
+**BIRD2: Show Output Channel** 打开 `BIRD2 LSP` 输出通道，其中是扩展日志。把 `bird2-lsp.trace.server` 设为 `messages` 或 `verbose` 可以加入 LSP 消息。扩展的错误通知带有两个操作：**Open FAQ** 打开 BIRD-LSP 仓库中 [docs/faq.md](https://github.com/bird-chinese-community/BIRD-LSP/blob/main/docs/faq.md) 的对应条目，**Report Issue** 打开问题跟踪器。[报告问题](https://github.com/bird-chinese-community/BIRD-LSP/issues/new?template=bug-report.yml)时，请附上扩展版本和输出通道日志。本站的[常见问题](../faq.mdx)列出了已知问题。

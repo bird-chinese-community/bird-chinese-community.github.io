@@ -1,0 +1,210 @@
+---
+title: Check configurations in CI
+description: Run birdcc lint, birdcc fmt --check and bird -p in GitHub Actions, with the setup-birdcc action or with the CLI alone.
+icon: Workflow
+---
+
+[setup-birdcc](https://github.com/bird-chinese-community/setup-birdcc) is a composite GitHub Action. It checks out the repository, installs Node.js and pnpm, and can install BIRD 2 or BIRD 3, a Rust toolchain and the dependencies of the repository. The action does not run `birdcc`. The workflow runs the commands in its own steps. The release tag is `v1.0.0`.
+
+## Basic workflow [#basic-workflow]
+
+The workflow below expects `bird.config.json` with a `main` entry at the root of the repository:
+
+```yaml title=".github/workflows/bird.yml"
+name: BIRD config
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up BIRD config tooling
+        id: setup
+        uses: bird-chinese-community/setup-birdcc@v1.0.0
+        with:
+          install-dependencies: "false"
+          cache-turbo: "false"
+
+      - name: Install birdcc
+        run: npm install --global @birdcc/cli@1.0.0
+
+      - name: Lint and parse with BIRD
+        run: birdcc lint --bird
+
+      - name: Check formatting
+        run: birdcc fmt --check
+```
+
+- The setup step installs BIRD 2 and sets the `BIRD_BIN` environment variable for the later steps. `birdcc lint --bird` runs `"$BIRD_BIN" -p -c <file>` on the entry file.
+- `install-dependencies: "false"` skips `pnpm install --frozen-lockfile`. That command needs a `package.json` and a `pnpm-lock.yaml` in `working-directory`.
+- `cache-turbo: "false"` skips the Turbo cache. Keep the default `"true"` only in a Turborepo project.
+- `birdcc lint` exits with status 1 when a diagnostic has the severity `error` or when the command fails. All rules report `warning` or `info` by default. To make the job fail on lint findings, raise the rule groups in `bird.config.json` as shown in [Fail CI on findings](./linting.mdx#fail-on-findings).
+- `birdcc fmt --check` exits with status 1 when the file needs formatting.
+
+To run the CLI without a global installation, use `pnpm dlx` or `npx`. `pnpm dlx` runs the `birdcc` binary of the package, so the arguments start with the command name:
+
+```sh
+pnpm dlx @birdcc/cli@1.0.0 lint --bird
+npx @birdcc/cli@1.0.0 fmt --check
+```
+
+In a repository with a `package.json`, add `@birdcc/cli` to `devDependencies` and commit `pnpm-lock.yaml`. Keep `install-dependencies` at `"true"` and run `pnpm exec birdcc lint`.
+
+To pin the action to a commit, use the commit of the tag: `bird-chinese-community/setup-birdcc@8457cfc198d2e3de7cb1cf3bf441772ef895e6c0`.
+
+## Inputs [#inputs]
+
+All inputs are strings. Boolean inputs take `"true"` or `"false"`. The action validates the inputs and stops with an error when a value is not in the accepted set.
+
+| Input                         | Default                                             | Description                                                                                               |
+| ----------------------------- | --------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `checkout`                    | `"true"`                                            | Run `actions/checkout`.                                                                                   |
+| `fetch-depth`                 | `"0"`                                               | Fetch depth for the checkout. A non-negative integer. `"0"` fetches the full history.                     |
+| `submodules`                  | `"false"`                                           | Submodule mode for the checkout: `"false"`, `"true"` or `"recursive"`.                                    |
+| `submodule-paths`             | empty                                               | Submodule paths to initialize with depth 1, separated by newlines or commas. Relative paths without `..`. |
+| `submodule-timeout`           | `"120"`                                             | Timeout in seconds for each submodule Git operation.                                                      |
+| `node-version`                | `"22"`                                              | Node.js version for `actions/setup-node`.                                                                 |
+| `pnpm-version`                | `"10.18.3"`                                         | pnpm version for `pnpm/action-setup`.                                                                     |
+| `registry-url`                | `"https://registry.npmjs.org"`                      | npm registry for `actions/setup-node`.                                                                    |
+| `working-directory`           | `"."`                                               | Directory, relative to the workspace, for the dependency installation and the Turbo cache path.           |
+| `install-dependencies`        | `"true"`                                            | Run `install-command` and cache the pnpm store.                                                           |
+| `install-command`             | `"pnpm install --frozen-lockfile --prefer-offline"` | Command that installs the dependencies.                                                                   |
+| `cache-turbo`                 | `"true"`                                            | Restore and save the Turbo cache.                                                                         |
+| `turbo-cache-path`            | `".turbo"`                                          | Turbo cache path, relative to `working-directory`.                                                        |
+| `install-rust`                | `"false"`                                           | Install a Rust toolchain with `dtolnay/rust-toolchain`.                                                   |
+| `rust-toolchain`              | `"stable"`                                          | Rust toolchain to install.                                                                                |
+| `rust-components`             | `"rustfmt,clippy"`                                  | Rust components to install, separated by commas.                                                          |
+| `rust-targets`                | `"wasm32-unknown-unknown"`                          | Rust targets to install, separated by commas.                                                             |
+| `install-bird`                | `"true"`                                            | Install a BIRD binary.                                                                                    |
+| `bird-version`                | `"2"`                                               | BIRD major version: `"2"` or `"3"`.                                                                       |
+| `bird-package-source`         | `"auto"`                                            | Package source for BIRD: `"auto"`, `"ubuntu"` or `"cznic"`.                                               |
+| `harden-runner`               | `"false"`                                           | Run `step-security/harden-runner` first.                                                                  |
+| `harden-runner-egress-policy` | `"audit"`                                           | Egress policy for `harden-runner`: `"audit"` or `"block"`.                                                |
+
+## Outputs [#outputs]
+
+| Output                 | Description                                                                                                            |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `bird-bin`             | Path of the BIRD binary. Empty when `install-bird` is `"false"` or the runner does not run Linux.                      |
+| `bird-version`         | Output of `bird --version`. Empty when `install-bird` is `"false"` or the runner does not run Linux.                   |
+| `turbo-cache-hit`      | `true` when `actions/cache` restored the Turbo cache from an exact key.                                                |
+| `changed-config-files` | Changed BIRD configuration files of a pull request, one path for each line. See [Check changed files](#changed-files). |
+
+When the BIRD installation step runs, it also writes `BIRD_BIN` with the value of `bird-bin` to the environment of the later steps of the job.
+
+## BIRD 2 and BIRD 3 [#bird-versions]
+
+| `bird-version` | `bird-package-source`  | Installed package                                                  |
+| -------------- | ---------------------- | ------------------------------------------------------------------ |
+| `"2"`          | `"auto"` or `"ubuntu"` | `bird2` from the Ubuntu repositories of the runner                 |
+| `"2"`          | `"cznic"`              | `bird2` from the CZ.NIC repository `https://pkg.labs.nic.cz/bird2` |
+| `"3"`          | `"auto"` or `"cznic"`  | `bird3` from the CZ.NIC repository `https://pkg.labs.nic.cz/bird3` |
+| `"3"`          | `"ubuntu"`             | None. The action stops with an error.                              |
+
+- The action installs BIRD only on Linux runners. On other runners, it prints a warning and leaves `bird-bin` and `BIRD_BIN` empty. Do not use `birdcc lint --bird` on these runners.
+- When `/usr/sbin/bird` or `/usr/local/sbin/bird` exists and `--version` succeeds, the action uses that binary and installs no package. On a self-hosted runner, this binary can have a different major version than `bird-version`.
+
+To check a configuration with both versions, use a matrix:
+
+```yaml title=".github/workflows/bird.yml"
+jobs:
+  check:
+    name: BIRD ${{ matrix.bird-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        bird-version: ["2", "3"]
+    steps:
+      - name: Set up BIRD ${{ matrix.bird-version }}
+        uses: bird-chinese-community/setup-birdcc@v1.0.0
+        with:
+          install-dependencies: "false"
+          cache-turbo: "false"
+          bird-version: ${{ matrix.bird-version }}
+
+      - name: Install birdcc
+        run: npm install --global @birdcc/cli@1.0.0
+
+      - name: Lint and parse with BIRD
+        run: birdcc lint --bird
+```
+
+## Check changed files [#changed-files]
+
+The `changed-config-files` output lists the configuration files that a pull request adds, copies, modifies or renames. The action computes the list only under these conditions:
+
+- `checkout` is `"true"` and `fetch-depth` is `"0"`. Both are the defaults.
+- The event carries pull request data, for example `pull_request` or `pull_request_target`. For other events, such as `push`, the list is empty.
+
+The action compares the base commit of the pull request with `github.sha` and keeps the paths whose file name ends in `.conf`, `.bird`, `.bird2` or `.bird3`. The paths are relative to the root of the repository, one path for each line. Deleted files are not in the list.
+
+```yaml title=".github/workflows/bird.yml"
+- name: Check changed files
+  if: steps.setup.outputs.changed-config-files != ''
+  env:
+    CHANGED_FILES: ${{ steps.setup.outputs.changed-config-files }}
+  run: |
+    while IFS= read -r file; do
+      birdcc fmt "$file" --check
+      birdcc lint "$file"
+    done <<< "$CHANGED_FILES"
+```
+
+The step uses the `setup` id and the `birdcc` installation of the [basic workflow](#basic-workflow).
+
+- `birdcc lint <file>` analyzes the include graph of the entry file that it detects for the file. The output can contain diagnostics of other files in that graph. [Cross-file analysis](./linting.mdx#cross-file) describes the detection.
+- The step does not use `--bird`. `--bird` runs `bird -p` on the file that you pass, and BIRD reports errors for a file that uses definitions from other files. Run `birdcc lint --bird` on the entry file in a separate step.
+
+## Without the action [#without-action]
+
+The CLI needs Node.js 22 or newer. BIRD is necessary only for `--bird`. Like the basic workflow, this workflow expects `bird.config.json` with a `main` entry.
+
+```yaml title=".github/workflows/bird.yml"
+name: BIRD config
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install birdcc
+        run: npm install --global @birdcc/cli@1.0.0
+
+      - name: Install BIRD 2
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bird2
+
+      - name: Lint and parse with BIRD
+        run: birdcc lint --bird
+        env:
+          BIRD_BIN: /usr/sbin/bird
+
+      - name: Check formatting
+        run: birdcc fmt --check
+```
+
+The Ubuntu `bird2` package installs the binary at `/usr/sbin/bird`. Without `--bird`, remove the BIRD installation step.
+
+To keep the JSON report of a run, write it to a file with `birdcc lint --format json > birdcc-lint.json`. The [JSON output](./reference/cli.mdx#json-output) reference lists the fields.

@@ -1,0 +1,20 @@
+{
+  "title": "BIRDCC 文档",
+  "pages": [
+    "index",
+    "getting-started",
+    "---指南---",
+    "...editors",
+    "linting",
+    "formatting",
+    "project-configuration",
+    "ci",
+    "asn-data",
+    "---参考---",
+    "...reference",
+    "---项目---",
+    "architecture",
+    "faq",
+    "contributing"
+  ]
+}

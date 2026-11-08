@@ -1,0 +1,204 @@
+---
+title: 常见问题
+description: BIRD2 LSP、birdcc 和语言服务器的常见问题与错误提示。
+icon: CircleHelp
+---
+
+BIRD2 LSP 的错误通知带有 **Open FAQ** 操作，它会打开 BIRD-LSP 仓库中的 [docs/faq.md](https://github.com/bird-chinese-community/BIRD-LSP/blob/main/docs/faq.md)。本页 [VS Code 扩展](#vscode)一节中 ID 相同的四个条目对应同样的问题。
+
+## 一般问题 [#general]
+
+<Accordions>
+
+<Accordion title="BIRD-LSP 支持哪些 BIRD 版本？" id="bird-versions">
+
+解析器和 lint 规则按 BIRD 2 和 BIRD 3 的语法工作。`bird.config.json` 中的 `bird.version` 可以填写，但不会改变解析方式或规则。
+
+要用 BIRD 本身检查 BIRD 1.x 配置，把校验命令指向 BIRD 1.x 程序。设置 `"enabled": false` 后，`birdcc lint` 跳过静态分析，只运行 BIRD 命令：
+
+```json title="bird.config.json"
+{
+  "linter": { "enabled": false, "withBird": true },
+  "bird": { "validateCommand": "/usr/local/sbin/bird -p -c {file}" }
+}
+```
+
+把路径换成你的 BIRD 1.x 程序路径。语言服务器也读取 `linter.enabled`，因此不会为这个项目发布 lint 诊断。[用 bird -p 检查](./linting.mdx#bird)一节介绍校验命令。
+
+</Accordion>
+
+<Accordion title="支持哪些编辑器？" id="editors">
+
+- VS Code 1.100 及以上版本，以及从 Open VSX 安装扩展的编辑器：[BIRD2 LSP](./editors/vscode.mdx)。
+- Neovim、Vim、Helix、JetBrains IDE 和其他 LSP 客户端：语言功能来自 `birdcc lsp --stdio`。Neovim 的语法高亮来自 BIRD.nvim，Vim 来自 BIRD.vim，JetBrains IDE 来自 TextMate 语法。[其他编辑器](./editors/other-editors.mdx)给出各编辑器的配置方法。
+
+</Accordion>
+
+<Accordion title="ASN 数据会发起网络请求吗？" id="asn-network">
+
+不会。`@birdcc/intel` 包含一个根据 BGP.Tools OpenDB 生成的 ASN 数据库文件，语言服务器读取这个文件。BIRD-LSP 仓库中的一个工作流每周更新该文件，新数据随 `@birdcc/intel` 的新版本发布。[ASN 数据](./asn-data.mdx)介绍数据库以及关闭 ASN 功能的设置。
+
+</Accordion>
+
+<Accordion title="BIRDCC 属于 BIRD 项目吗？" id="affiliation">
+
+不属于。BIRD 由 CZ.NIC Labs 开发。BIRD 中文社区（BIRDCC）维护 BIRD-LSP，与 CZ.NIC 没有隶属关系。BIRD-LSP 采用 [GPL-3.0-only](https://github.com/bird-chinese-community/BIRD-LSP/blob/main/LICENSE) 许可证。
+
+</Accordion>
+
+</Accordions>
+
+## VS Code 扩展 [#vscode]
+
+<Accordions>
+
+<Accordion title="BIRD2 LSP 需要 Node.js 或 birdcc 吗？" id="node-requirement">
+
+不需要。扩展内置语言服务器，并用 VS Code 的 JavaScript 运行时启动它。回退校验需要本机安装 BIRD 2 或 BIRD 3 程序。语言服务器的功能不使用 BIRD 程序。
+
+</Accordion>
+
+<Accordion title="BIRD2 LSP 在受限模式下保持停用" id="restricted-mode">
+
+扩展清单没有声明支持不受信任的工作区。在你信任该工作区之前，VS Code 在受限模式（Restricted Mode）下保持扩展停用。信任工作区后，再打开一个 `bird2` 文件。
+
+</Accordion>
+
+<Accordion title=".conf 文件没有诊断或格式化" id="conf-files">
+
+其他软件也使用 `.conf`。只有满足以下任一条件时，扩展和语言服务器才分析 `.conf` 文件：`bird.config.json` 中的 `main` 指向它；文件名是 `bird.conf`、`bird2.conf`、`bird3.conf` 或 `bird6.conf`；解析器在其中找到 BIRD 声明。[文件关联](./editors/vscode.mdx#file-association)列出全部条件。大于 `bird2-lsp.performance.maxFileSizeBytes` 的文件也会被跳过，见下一条。
+
+</Accordion>
+
+<Accordion title="大文件被跳过（file-too-large）" id="file-too-large">
+
+扩展显示类似下面的通知：
+
+```text
+BIRD2: skipped formatting for large file (3.1 MiB > 2.0 MiB). Adjust bird2-lsp.performance.maxFileSizeBytes to change this limit.
+```
+
+对于大于 `bird2-lsp.performance.maxFileSizeBytes`（默认 2097152 字节，即 2 MiB）的文件，扩展跳过格式化、类型提示、关键字悬停提示和回退校验。语言服务器也不分析超过同一上限的文件。
+
+1. 在 VS Code 设置中调大 `bird2-lsp.performance.maxFileSizeBytes`。
+2. 把配置拆分成多个文件，用 `include` 语句组合。
+3. 在终端或 CI 中运行 `birdcc lint` 和 `birdcc fmt`。默认情况下，`birdcc lint` 对每个文件的上限是 2 MiB。文件更大时，调大 `bird.config.json` 中的 `crossFile.maxDocumentBytes`（见 [`crossFile` 键](./reference/configuration.mdx#cross-file)）。
+
+</Accordion>
+
+<Accordion title="类型提示停止工作（type-hints-runtime-failed）" id="type-hints-runtime-failed">
+
+函数返回类型的悬停提示或内嵌提示停止工作，扩展显示 `BIRD2 type hints hover failed` 或 `BIRD2 type hints inlay failed`。`BIRD2 LSP` 输出通道中有对应的 `type hints ... failed` 记录。
+
+1. 把扩展更新到最新版本。
+2. 运行 **Developer: Reload Window**。报告这个错误的类型提示提供程序运行在扩展宿主中，所以 **BIRD2: Restart Language Server** 不会重置它们。
+3. 要关闭这个功能，把 `bird2-lsp.typeHints.enabled` 设为 `false`。
+4. 问题仍然存在时，复制 `BIRD2 LSP` 输出通道的日志，并[报告问题](#help)。
+
+</Accordion>
+
+<Accordion title="回退校验失败（validation-command-failed）" id="validation-command-failed">
+
+扩展显示 `BIRD2 validation command is invalid or unsafe` 或 `BIRD2 validation command failed`，输出通道记录命令错误。
+
+1. 确认 `bird2-lsp.validation.command` 把 `{file}` 作为单独的参数，并通过[回退校验](./editors/vscode.mdx#fallback-validation)一节中的其他检查。
+2. 错误中含有 `ENOENT` 时，安装 BIRD 2 或 BIRD 3，或者把命令设为程序的绝对路径，例如 `/usr/sbin/bird -p -c {file}`。
+3. 在终端中用一个真实文件的路径运行该命令。
+4. 从默认命令 `bird -p -c {file}` 开始调整。
+5. 校验只针对受信任工作区中已保存的文件；打开文件夹时，还要求文件位于某个工作区文件夹内。扩展跳过未保存的文件、不受信任的工作区、工作区文件夹以外的文件或所有用户都可写的文件时，输出通道会记录原因。
+
+</Accordion>
+
+<Accordion title="BIRD2 命令执行失败（extension-command-failed）" id="extension-command-failed">
+
+**BIRD2: Restart Language Server**、**BIRD2: Format Active Document** 或 **BIRD2: Validate Active Document** 等命令执行失败。扩展显示类似 `Failed to restart BIRD2 language server.` 的通知，并带有 **Open FAQ** 和 **Report Issue** 两个操作。
+
+1. 运行 **BIRD2: Restart Language Server**，再执行一次该命令。
+2. 阅读 `BIRD2 LSP` 输出通道中的日志（**BIRD2: Show Output Channel**）。
+3. 确认工作区已受信任，并且命令需要的程序已经安装。
+4. 命令仍然失败时，选择 **Report Issue** 并附上日志。
+
+</Accordion>
+
+</Accordions>
+
+## birdcc 与其他编辑器 [#cli]
+
+<Accordions>
+
+<Accordion title="birdcc lint 报告了问题，退出码却是 0" id="exit-status-zero">
+
+`sym`、`cfg`、`net` 和 `type` 规则默认报告 `warning`，`bgp` 和 `ospf` 规则默认报告 `info`。只有某个诊断的级别为 `error` 或命令本身失败时，`birdcc lint` 才以退出码 1 结束。要让 CI 任务在发现问题时失败，把规则组提升为 `error`：
+
+```json title="bird.config.json"
+{
+  "linter": {
+    "rules": {
+      "sym/*": "error",
+      "cfg/*": "error",
+      "net/*": "error",
+      "type/*": "error"
+    }
+  }
+}
+```
+
+[让 CI 在出现问题时失败](./linting.mdx#fail-on-findings)一节给出完整示例。
+
+</Accordion>
+
+<Accordion title="有错误的文件，birdcc lint 却报告没有问题" id="file-outside-graph">
+
+跨文件分析开启时（默认开启），`birdcc lint` 分析目标文件所属入口文件的 include 图。目标文件不在这个图中时，输出不含它的诊断。单独检查这个文件：
+
+```sh
+birdcc lint old/legacy.conf --no-cross-file
+```
+
+[跨文件分析](./linting.mdx#cross-file)一节说明 birdcc 如何选择入口文件。
+
+</Accordion>
+
+<Accordion title="birdcc lint --bird 报告带 ENOENT 的 bird/runner-error" id="bird-not-found">
+
+```text
+ERROR bird/runner-error 1:1 bird validation error: spawnSync bird ENOENT
+```
+
+birdcc 在 `PATH` 中找不到 `bird` 程序。安装 BIRD 2 或 BIRD 3，或者用环境变量 `BIRD_BIN` 或 `bird.config.json` 中的 `bird.binaryPath` 指定程序：
+
+```sh
+BIRD_BIN=/usr/sbin/bird birdcc lint bird.conf --bird
+```
+
+在 GitHub Actions 中，[setup-birdcc](./ci.mdx) 会安装 BIRD，并在输出 `bird-bin` 中返回程序路径。
+
+</Accordion>
+
+<Accordion title="如何查看已安装的 birdcc 版本？" id="cli-version">
+
+`birdcc` 没有 `--version` 选项，`-v` 表示 `--verbose`。全局安装时，运行：
+
+```sh
+npm ls --global @birdcc/cli
+```
+
+</Accordion>
+
+<Accordion title="编辑器无法启动 birdcc lsp" id="lsp-start">
+
+- `birdcc` 需要 Node.js 22 或更新版本。
+- 编辑器运行 `birdcc lsp --stdio`，所以 `birdcc` 必须在编辑器进程的 `PATH` 中，否则请使用命令的绝对路径。
+- 不带 `--stdio` 的 `birdcc lsp` 输出 ``Only `birdcc lsp --stdio` is currently supported`` 并以退出码 1 结束。
+
+[安装语言服务器](./editors/other-editors.mdx#install-the-language-server)一节给出安装命令。
+
+</Accordion>
+
+</Accordions>
+
+## 获取帮助 [#help]
+
+- [报告 bug](https://github.com/bird-chinese-community/BIRD-LSP/issues/new?template=bug-report.yml)。请附上扩展或 `@birdcc/cli` 的版本、问题出现在编辑器中时的 VS Code 版本、操作系统、能重现问题的最小配置，以及 `BIRD2 LSP` 输出通道的日志或命令输出。
+- [提出功能需求](https://github.com/bird-chinese-community/BIRD-LSP/issues/new?template=feature-request.yml)。
+- 安全问题请私下报告，不要提交公开 issue：使用[私密漏洞报告](https://github.com/bird-chinese-community/BIRD-LSP/security/advisories/new)，或按照[安全策略](https://github.com/bird-chinese-community/BIRD-LSP/blob/main/SECURITY.md)操作。

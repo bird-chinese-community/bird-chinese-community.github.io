@@ -1,0 +1,204 @@
+---
+title: FAQ
+description: Answers to common questions and error messages of BIRD2 LSP, birdcc and the language server.
+icon: CircleHelp
+---
+
+The error notifications of BIRD2 LSP have an **Open FAQ** action that opens [docs/faq.md](https://github.com/bird-chinese-community/BIRD-LSP/blob/main/docs/faq.md) in the BIRD-LSP repository. The four entries with the same IDs under [VS Code extension](#vscode) on this page cover the same problems.
+
+## General [#general]
+
+<Accordions>
+
+<Accordion title="Which BIRD versions does BIRD-LSP support?" id="bird-versions">
+
+The parser and the lint rules follow the syntax of BIRD 2 and BIRD 3. `bird.version` in `bird.config.json` is accepted, but it does not change parsing or the rules.
+
+To check a BIRD 1.x configuration with BIRD itself, point the validation command at the BIRD 1.x binary. With `"enabled": false`, `birdcc lint` skips the static analysis and runs only the BIRD command:
+
+```json title="bird.config.json"
+{
+  "linter": { "enabled": false, "withBird": true },
+  "bird": { "validateCommand": "/usr/local/sbin/bird -p -c {file}" }
+}
+```
+
+Replace the path with the path of your BIRD 1.x binary. The language server also reads `linter.enabled`, so it publishes no lint diagnostics for this project. [Check with bird -p](./linting.mdx#bird) describes the validation command.
+
+</Accordion>
+
+<Accordion title="Which editors are supported?" id="editors">
+
+- VS Code 1.100 or newer, and editors that install extensions from Open VSX: [BIRD2 LSP](./editors/vscode.mdx).
+- Neovim, Vim, Helix, JetBrains IDEs and other LSP clients: language features from `birdcc lsp --stdio`. Neovim gets syntax highlighting from BIRD.nvim, Vim from BIRD.vim, and JetBrains IDEs from the TextMate grammar. [Other editors](./editors/other-editors.mdx) has the setup for each editor.
+
+</Accordion>
+
+<Accordion title="Does the ASN data send requests over the network?" id="asn-network">
+
+No. `@birdcc/intel` contains an ASN database file built from BGP.Tools OpenDB, and the language server reads this file. A weekly workflow in the BIRD-LSP repository refreshes the file, and new data arrives with a new release of `@birdcc/intel`. [ASN data](./asn-data.mdx) describes the database and the settings that turn the ASN features off.
+
+</Accordion>
+
+<Accordion title="Is BIRDCC part of the BIRD project?" id="affiliation">
+
+No. CZ.NIC Labs develops BIRD. The BIRD Chinese Community (BIRDCC) maintains BIRD-LSP and is not affiliated with CZ.NIC. BIRD-LSP is licensed under [GPL-3.0-only](https://github.com/bird-chinese-community/BIRD-LSP/blob/main/LICENSE).
+
+</Accordion>
+
+</Accordions>
+
+## VS Code extension [#vscode]
+
+<Accordions>
+
+<Accordion title="Does BIRD2 LSP need Node.js or birdcc?" id="node-requirement">
+
+No. The extension contains the language server and starts it with the JavaScript runtime of VS Code. Fallback validation needs a BIRD 2 or BIRD 3 binary on the machine. The language server features do not use the BIRD binary.
+
+</Accordion>
+
+<Accordion title="BIRD2 LSP stays disabled in Restricted Mode" id="restricted-mode">
+
+The extension manifest does not declare support for untrusted workspaces. VS Code keeps the extension disabled in Restricted Mode until you trust the workspace. Trust the workspace, then open a `bird2` file.
+
+</Accordion>
+
+<Accordion title="A .conf file gets no diagnostics or formatting" id="conf-files">
+
+Other software also uses `.conf`. The extension and the language server analyze a `.conf` file only when `main` in `bird.config.json` points to it, when its name is `bird.conf`, `bird2.conf`, `bird3.conf` or `bird6.conf`, or when the parser finds a BIRD declaration in it. [File association](./editors/vscode.mdx#file-association) lists the conditions. A file larger than `bird2-lsp.performance.maxFileSizeBytes` is also skipped; see the next entry.
+
+</Accordion>
+
+<Accordion title="A large file is skipped (file-too-large)" id="file-too-large">
+
+The extension shows a notification such as:
+
+```text
+BIRD2: skipped formatting for large file (3.1 MiB > 2.0 MiB). Adjust bird2-lsp.performance.maxFileSizeBytes to change this limit.
+```
+
+The extension skips formatting, type hints, keyword hover and fallback validation for files larger than `bird2-lsp.performance.maxFileSizeBytes` (default 2097152 bytes, 2 MiB). The language server does not analyze files above the same limit.
+
+1. Increase `bird2-lsp.performance.maxFileSizeBytes` in the VS Code settings.
+2. Split the configuration into files that `include` statements join.
+3. Run `birdcc lint` and `birdcc fmt` in a terminal or in CI. `birdcc lint` stops at 2 MiB for each file by default. For larger files, raise `crossFile.maxDocumentBytes` in `bird.config.json` ([`crossFile` keys](./reference/configuration.mdx#cross-file)).
+
+</Accordion>
+
+<Accordion title="Type hints stop working (type-hints-runtime-failed)" id="type-hints-runtime-failed">
+
+Function return-type hover or inlay hints stop working, and the extension shows `BIRD2 type hints hover failed` or `BIRD2 type hints inlay failed`. The `BIRD2 LSP` output channel contains a matching `type hints ... failed` line.
+
+1. Update the extension to the latest version.
+2. Run **Developer: Reload Window**. The type hint providers that report this error run in the extension host, so **BIRD2: Restart Language Server** does not reset them.
+3. To turn the feature off, set `bird2-lsp.typeHints.enabled` to `false`.
+4. If the problem continues, copy the log of the `BIRD2 LSP` output channel and [report a bug](#help).
+
+</Accordion>
+
+<Accordion title="Fallback validation fails (validation-command-failed)" id="validation-command-failed">
+
+The extension shows `BIRD2 validation command is invalid or unsafe` or `BIRD2 validation command failed`, and the output channel logs the command error.
+
+1. Make sure that `bird2-lsp.validation.command` contains `{file}` as a separate argument and passes the other checks in [Fallback validation](./editors/vscode.mdx#fallback-validation).
+2. If the error contains `ENOENT`, install BIRD 2 or BIRD 3, or set the command to the absolute path of the binary, for example `/usr/sbin/bird -p -c {file}`.
+3. Run the command in a terminal with the path of a real file.
+4. Start from the default command, `bird -p -c {file}`.
+5. Validation runs only for saved files in a trusted workspace and, when a folder is open, for files inside a workspace folder. The output channel logs the reason when the extension skips an unsaved file, an untrusted workspace, a file outside the workspace folders, or a file that all users can write.
+
+</Accordion>
+
+<Accordion title="A BIRD2 command fails (extension-command-failed)" id="extension-command-failed">
+
+A command such as **BIRD2: Restart Language Server**, **BIRD2: Format Active Document** or **BIRD2: Validate Active Document** fails. The extension shows a notification such as `Failed to restart BIRD2 language server.` with the actions **Open FAQ** and **Report Issue**.
+
+1. Run **BIRD2: Restart Language Server** and try the command again.
+2. Read the log in the `BIRD2 LSP` output channel (**BIRD2: Show Output Channel**).
+3. Make sure that the workspace is trusted and that the binaries that the command needs are installed.
+4. If the command still fails, select **Report Issue** and add the log.
+
+</Accordion>
+
+</Accordions>
+
+## birdcc and other editors [#cli]
+
+<Accordions>
+
+<Accordion title="birdcc lint reports problems but exits with status 0" id="exit-status-zero">
+
+`sym`, `cfg`, `net` and `type` rules report `warning` by default, and `bgp` and `ospf` rules report `info`. `birdcc lint` exits with status 1 only when a diagnostic has the severity `error` or when the command fails. To fail a CI job on findings, raise the rule groups to `error`:
+
+```json title="bird.config.json"
+{
+  "linter": {
+    "rules": {
+      "sym/*": "error",
+      "cfg/*": "error",
+      "net/*": "error",
+      "type/*": "error"
+    }
+  }
+}
+```
+
+[Fail CI on findings](./linting.mdx#fail-on-findings) has the complete example.
+
+</Accordion>
+
+<Accordion title="birdcc lint reports no problems for a file with errors" id="file-outside-graph">
+
+With cross-file analysis on (the default), `birdcc lint` analyzes the include graph of the entry file of the target. When the target file is not in that graph, the output contains no diagnostics for it. Lint the file on its own:
+
+```sh
+birdcc lint old/legacy.conf --no-cross-file
+```
+
+[Cross-file analysis](./linting.mdx#cross-file) describes how birdcc selects the entry file.
+
+</Accordion>
+
+<Accordion title="birdcc lint --bird reports bird/runner-error with ENOENT" id="bird-not-found">
+
+```text
+ERROR bird/runner-error 1:1 bird validation error: spawnSync bird ENOENT
+```
+
+birdcc did not find the `bird` binary in `PATH`. Install BIRD 2 or BIRD 3, or name the binary with the `BIRD_BIN` environment variable or `bird.binaryPath` in `bird.config.json`:
+
+```sh
+BIRD_BIN=/usr/sbin/bird birdcc lint bird.conf --bird
+```
+
+In GitHub Actions, [setup-birdcc](./ci.mdx) installs BIRD and returns the path of the binary in its `bird-bin` output.
+
+</Accordion>
+
+<Accordion title="How do I find the installed version of birdcc?" id="cli-version">
+
+`birdcc` has no `--version` option, and `-v` means `--verbose`. For a global installation, run:
+
+```sh
+npm ls --global @birdcc/cli
+```
+
+</Accordion>
+
+<Accordion title="The editor cannot start birdcc lsp" id="lsp-start">
+
+- `birdcc` needs Node.js 22 or newer.
+- The editor starts `birdcc lsp --stdio`, so `birdcc` must be in the `PATH` of the editor process. Otherwise, use the absolute path of the command.
+- `birdcc lsp` without `--stdio` prints ``Only `birdcc lsp --stdio` is currently supported`` and exits with status 1.
+
+[Install the language server](./editors/other-editors.mdx#install-the-language-server) has the installation command.
+
+</Accordion>
+
+</Accordions>
+
+## Get help [#help]
+
+- [Report a bug](https://github.com/bird-chinese-community/BIRD-LSP/issues/new?template=bug-report.yml). Add the version of the extension or of `@birdcc/cli`, the VS Code version when the problem is in the editor, the operating system, a minimal configuration that shows the problem, and the log of the `BIRD2 LSP` output channel or the command output.
+- [Request a feature](https://github.com/bird-chinese-community/BIRD-LSP/issues/new?template=feature-request.yml).
+- Report a security issue privately, not in a public issue: use [private vulnerability reporting](https://github.com/bird-chinese-community/BIRD-LSP/security/advisories/new) or follow the [security policy](https://github.com/bird-chinese-community/BIRD-LSP/blob/main/SECURITY.md).

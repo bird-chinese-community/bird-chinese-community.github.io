@@ -1,0 +1,149 @@
+---
+title: 快速上手
+description: 安装编辑器扩展和 birdcc 命令行工具，检查一个配置文件，并生成 bird.config.json。
+icon: Rocket
+---
+
+## 环境要求
+
+| 工具                                             | 要求                                                                  |
+| ------------------------------------------------ | --------------------------------------------------------------------- |
+| `@birdcc/cli` 提供的 `birdcc`                    | Node.js 22 或更新版本。                                               |
+| VS Code 扩展 BIRD2 LSP                           | VS Code 1.100 或更新版本。扩展内置语言服务器，不需要 Node.js。        |
+| `bird -p` 检查（`birdcc lint --bird`、回退校验） | 同一台机器上装有 BIRD 2 或 BIRD 3。lint 规则和编辑器功能不需要 BIRD。 |
+
+## 安装并检查配置
+
+<Steps>
+
+<Step>
+
+### 安装编辑器扩展
+
+BIRD2 Extension Pack（`BIRDCC.bird2-extension-pack`）会安装两个扩展：内置语言服务器的 BIRD2 LSP（`BIRDCC.bird2-lsp`），以及提供语法高亮的 BIRD2 Configuration（`BIRDCC.vscode-bird2-conf`）。
+
+<Tabs items={["VS Code Marketplace", "Open VSX", "命令行"]}>
+
+<Tab value="VS Code Marketplace">
+
+在 VS Code 中打开扩展视图，搜索 `BIRD2 Extension Pack`，然后选择 **Install**。Marketplace 页面是 [BIRDCC.bird2-extension-pack](https://marketplace.visualstudio.com/items?itemName=BIRDCC.bird2-extension-pack)。
+
+</Tab>
+
+<Tab value="Open VSX">
+
+VSCodium 等从 Open VSX 安装扩展的编辑器使用同一个扩展包：[BIRDCC/bird2-extension-pack](https://open-vsx.org/extension/BIRDCC/bird2-extension-pack)。在编辑器的扩展视图中搜索 `BIRD2 Extension Pack`。
+
+</Tab>
+
+<Tab value="命令行">
+
+```sh
+code --install-extension BIRDCC.bird2-extension-pack
+```
+
+</Tab>
+
+</Tabs>
+
+VS Code 只在受信任的工作区中启用这个扩展。Neovim、Vim、Helix 和其他编辑器见[其他编辑器](./editors/other-editors.mdx)。
+
+</Step>
+
+<Step>
+
+### 安装命令行工具
+
+```sh
+npm install --global @birdcc/cli
+```
+
+运行 `birdcc --help` 检查安装结果，输出会列出 `lint`、`fmt`、`lsp` 和 `init` 四个命令。要在项目中固定版本，运行 `npm install --save-dev @birdcc/cli`，然后用 `npx birdcc` 调用。
+
+</Step>
+
+<Step>
+
+### 检查一个配置文件
+
+下面的配置引用了一个没有定义的 filter：
+
+```bird2 title="bird.conf"
+router id 192.0.2.1;
+
+protocol device {
+}
+
+protocol bgp upstream {
+  local as 65001;
+  neighbor 192.0.2.2 as 65002;
+  ipv4 {
+    import filter peer_in;
+    export none;
+  };
+}
+```
+
+在文件所在的目录中运行检查：
+
+```sh
+birdcc lint bird.conf
+```
+
+```text
+WARNING sym/filter-required [file:///srv/bird/bird.conf] 10:19 Protocol 'upstream' references unknown filter 'peer_in'
+```
+
+每行依次是级别、规则代码、文件 URI、行号与列号，以及诊断信息。默认情况下，`sym`、`cfg`、`net` 和 `type` 规则报告 warning，`bgp` 和 `ospf` 规则报告 info，所以这次运行的退出码为 0。出现 `error` 级别的诊断或命令本身失败时，`birdcc lint` 的退出码为 1。[Lint 检查](./linting.mdx)说明了如何提高规则级别，让 lint 在 CI 任务中失败。
+
+`birdcc lint` 会跟随文件中的 `include` 语句。加上 `--bird` 可以同时对文件运行 `bird -p`。
+
+</Step>
+
+<Step>
+
+### 生成 bird.config.json
+
+要先查看候选文件和将要写出的内容而不写入文件，先运行 `birdcc init --dry-run`。然后写出文件：
+
+```sh
+birdcc init --write
+```
+
+```text
+Created bird.config.json
+  Entry: bird.conf (single, confidence: 100%)
+```
+
+```json title="bird.config.json"
+{
+  "$schema": "https://raw.githubusercontent.com/bird-chinese-community/BIRD-LSP/main/schemas/bird.config.schema.json",
+  "main": "./bird.conf",
+  "formatter": {
+    "indentSize": 2
+  }
+}
+```
+
+`birdcc init` 扫描当前目录下的 `.conf` 文件，把探测到的入口文件写成 `main`。找到多个互相独立的入口文件时，改为写出 `workspaces`。入口文件使用 2、4 或 8 个空格缩进时，还会写出 `formatter.indentSize`。
+
+不带文件参数时，`birdcc lint` 检查 `main` 指定的入口文件及其 include 图，`birdcc fmt` 检查 `main` 文件的格式：
+
+```sh
+birdcc lint
+birdcc fmt
+```
+
+语言服务器读取同一个文件。[项目配置](./project-configuration.mdx)说明了各个配置项、入口文件探测和 include 路径解析。
+
+</Step>
+
+</Steps>
+
+## 后续步骤
+
+- [VS Code](./editors/vscode.mdx)：BIRD2 LSP 的设置、命令、代码片段和回退校验。
+- [Lint 检查](./linting.mdx)：规则、级别和 `bird -p` 检查。
+- [格式化](./formatting.mdx)：`birdcc fmt`、格式化引擎和安全模式。
+- [CI](./ci.mdx)：用 setup-birdcc 在 GitHub Actions 中做 lint 检查和格式检查。
+- [CLI 参考](./reference/cli.mdx)：`birdcc` 的全部选项。

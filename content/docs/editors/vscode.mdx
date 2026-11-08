@@ -1,0 +1,214 @@
+---
+title: VS Code
+description: Install and configure BIRD2 LSP, the VS Code extension for BIRD 2 and BIRD 3 configuration files.
+icon: Code
+---
+
+BIRD2 LSP (`BIRDCC.bird2-lsp`) contains the language server `@birdcc/lsp` and starts it with the JavaScript runtime of VS Code (`ELECTRON_RUN_AS_NODE=1`). Node.js and `@birdcc/cli` are not needed. Syntax highlighting comes from the separate extension BIRD2 Configuration (`BIRDCC.vscode-bird2-conf`).
+
+## Install
+
+<Tabs items={["VS Code Marketplace", "Open VSX", "VSIX file"]}>
+
+<Tab value="VS Code Marketplace">
+
+Search for `BIRD2 LSP` in the Extensions view, or open [BIRDCC.bird2-lsp](https://marketplace.visualstudio.com/items?itemName=BIRDCC.bird2-lsp). From a terminal:
+
+```sh
+code --install-extension BIRDCC.bird2-lsp
+```
+
+</Tab>
+
+<Tab value="Open VSX">
+
+VSCodium and other editors that install extensions from Open VSX use [BIRDCC/bird2-lsp](https://open-vsx.org/extension/BIRDCC/bird2-lsp).
+
+</Tab>
+
+<Tab value="VSIX file">
+
+For a machine without access to an extension gallery, download `bird2-lsp.vsix` from a release tagged `bird2-lsp-v<version>` on [GitHub Releases](https://github.com/bird-chinese-community/BIRD-LSP/releases), then install the file:
+
+```sh
+code --install-extension bird2-lsp.vsix
+```
+
+</Tab>
+
+</Tabs>
+
+## Extension pack
+
+BIRD2 Extension Pack (`BIRDCC.bird2-extension-pack`) contains no code of its own. It installs these extensions:
+
+| Extension           | ID                         | Provides                                                                                                                                       |
+| ------------------- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| BIRD2 LSP           | `BIRDCC.bird2-lsp`         | Language server features, formatting, snippets and `bird -p` fallback validation.                                                              |
+| BIRD2 Configuration | `BIRDCC.vscode-bird2-conf` | TextMate grammar for syntax highlighting, from [BIRD-tm-language-grammar](https://github.com/bird-chinese-community/BIRD-tm-language-grammar). |
+
+```sh
+code --install-extension BIRDCC.bird2-extension-pack
+```
+
+The pack is also on [Open VSX](https://open-vsx.org/extension/BIRDCC/bird2-extension-pack). Each `bird2-lsp-v<version>` release includes `bird2-extension-pack.vsix`. The pack names its members by ID, so installing the file still downloads both extensions from the extension gallery of the editor.
+
+## Requirements
+
+- VS Code 1.100 or newer.
+- Fallback validation runs the BIRD binary (`bird -p -c {file}` by default) and needs BIRD 2 or BIRD 3 on the machine. Without it, the validator reports the failed command as an error on the first line of the file. Language server features do not use the BIRD binary.
+- A trusted workspace. The extension manifest does not declare support for untrusted workspaces, so VS Code keeps the extension disabled in Restricted Mode until you trust the workspace.
+
+## File association [#file-association]
+
+The extension registers the language ID `bird2` for these files:
+
+- Extensions: `.conf`, `.bird`, `.bird2`, `.bird3`, `.bird2.conf`, `.bird3.conf`
+- File names: `bird.conf`, `bird2.conf`
+
+Other software also uses `.conf`. Analysis, formatting, type hints, keyword hover and fallback validation apply only to files that meet one of these conditions:
+
+1. `main` in `bird.config.json` (or `birdcc.config.json`) points to the file.
+2. The file name is `bird.conf`, `bird2.conf`, `bird3.conf` or `bird6.conf`, optionally with a leading dot, in any letter case.
+3. The parser finds at least one BIRD declaration, such as `router id`, `include`, `define`, `filter`, `function`, `template`, `table`, `attribute` or a `protocol` of a known BIRD protocol type.
+
+Other files, such as an `nginx.conf` without BIRD declarations, keep the `bird2` language mode but get no diagnostics and no formatting edits.
+
+## Features
+
+Most features come from the language server. The [language server reference](../reference/language-server.mdx) describes its capabilities, settings and limits.
+
+| Feature               | Behavior                                                                                                                                                                                                                                                                                                                                                     |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Diagnostics           | 32 lint rules in six groups (`sym`, `cfg`, `net`, `type`, `bgp`, `ospf`), analyzed across the `include` graph. By default, `sym`, `cfg`, `net` and `type` rules report warnings and `bgp` and `ospf` rules report information. `linter.rules` in `bird.config.json` changes the severities or turns rules off; see [Rules](../reference/rules.mdx#severity). |
+| Completion            | 14 keywords, 4 statement templates (`include`, `define`, `router id`, `protocol bgp`), names declared in the `include` graph, and paths already used by `include` statements. Filter names are offered after `import filter` and `export filter`, table names after `table`, and template names after `from`. Trigger characters are space and `.`.          |
+| Hover                 | Keyword documentation with links to the BIRD User's Guide, and details of declared symbols.                                                                                                                                                                                                                                                                  |
+| Go to definition      | Resolves a name to the declaration of the protocol, template, filter, function, table or `define` constant with that name anywhere in the `include` graph.                                                                                                                                                                                                   |
+| Find references       | Returns the declaration plus the `from` clauses that name a template. Other uses of filters, functions, tables, protocols and constants are not reported.                                                                                                                                                                                                    |
+| Outline               | Document symbols for top-level declarations.                                                                                                                                                                                                                                                                                                                 |
+| Formatting            | Format Document and Format Selection run `@birdcc/formatter` with the `dprint` engine (default) or the `builtin` engine, with safe mode on by default. Format Selection formats the whole file and applies only the edits inside the selection. `formatter` options in `bird.config.json` take precedence over extension settings and editor indentation.    |
+| Function return types | Hover on a function name shows the declared or inferred return type and up to five return expressions. Inlay hints show the type after the function name.                                                                                                                                                                                                    |
+| ASN information       | Completion, hover and inlay hints for AS numbers, read from the BGP.Tools OpenDB snapshot in `@birdcc/intel`. The extension makes no network requests for them.                                                                                                                                                                                              |
+| Snippets              | 40 snippets; see [Snippets](#snippets).                                                                                                                                                                                                                                                                                                                      |
+| Fallback validation   | Runs `bird -p` on saved files when the language server is off or failed; see [Fallback validation](#fallback-validation).                                                                                                                                                                                                                                    |
+
+The extension host registers its own providers for Format Document, Format Selection, function return-type hover and inlay hints, and keyword hover while the language server is not running for a file. It also runs fallback validation and the status bar item.
+
+## Settings [#settings]
+
+All settings are in the `bird2-lsp` section:
+
+| Setting                                  | Type                   | Default                                                  | Description                                                                                                                                                                                                  |
+| ---------------------------------------- | ---------------------- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `bird2-lsp.enabled`                      | `boolean`              | `true`                                                   | Run the language server. Files for which this is `false` get no server features and are checked by fallback validation. The server runs while at least one workspace folder or open `bird2` file has `true`. |
+| `bird2-lsp.serverPath`                   | `string` or `string[]` | `["birdcc", "lsp", "--stdio"]`                           | Language server command. The default value starts the bundled server. Any other value runs that command, for example `["/usr/local/bin/birdcc", "lsp", "--stdio"]`.                                          |
+| `bird2-lsp.trace.server`                 | `string`               | `"off"`                                                  | Protocol tracing in the `BIRD2 LSP` output channel: `off`, `messages` or `verbose`.                                                                                                                          |
+| `bird2-lsp.hiddenErrors`                 | `string[]`             | `["textDocument/definition", "textDocument/references"]` | LSP request methods whose failures do not show a notification.                                                                                                                                               |
+| `bird2-lsp.validation.enabled`           | `boolean`              | `true`                                                   | Allow fallback validation.                                                                                                                                                                                   |
+| `bird2-lsp.validation.command`           | `string`               | `"bird -p -c {file}"`                                    | Fallback validation command. `{file}` is replaced with the path of the saved file.                                                                                                                           |
+| `bird2-lsp.validation.onSave`            | `boolean`              | `true`                                                   | Run fallback validation when a file is saved.                                                                                                                                                                |
+| `bird2-lsp.validation.timeout`           | `number`               | `30000`                                                  | Fallback validation timeout in milliseconds, 1000 to 120000.                                                                                                                                                 |
+| `bird2-lsp.performance.maxFileSizeBytes` | `number`               | `2097152`                                                | File size limit in bytes, 65536 to 104857600. Larger files get no formatting, type hints, keyword hover or fallback validation from the extension, and the language server does not analyze them.            |
+| `bird2-lsp.performance.startupTimeoutMs` | `number`               | `10000`                                                  | Time in milliseconds, 1000 to 120000, for the language server to start. After it, the extension stops the server and switches to fallback validation.                                                        |
+| `bird2-lsp.formatter.engine`             | `string`               | `"dprint"`                                               | Formatter engine: `dprint` or `builtin`.                                                                                                                                                                     |
+| `bird2-lsp.formatter.safeMode`           | `boolean`              | `true`                                                   | Reject formatter output whose declarations or parse errors differ from the input.                                                                                                                            |
+| `bird2-lsp.typeHints.enabled`            | `boolean`              | `true`                                                   | Function return-type hover and inlay hints.                                                                                                                                                                  |
+| `bird2-lsp.typeHints.hover.enabled`      | `boolean`              | `true`                                                   | Return-type details when hovering a function name.                                                                                                                                                           |
+| `bird2-lsp.typeHints.inlay.enabled`      | `boolean`              | `true`                                                   | Return-type inlay hints after function names.                                                                                                                                                                |
+| `bird2-lsp.intel.enabled`                | `boolean`              | `true`                                                   | ASN completion, hover and inlay hints.                                                                                                                                                                       |
+| `bird2-lsp.intel.inlayHints`             | `boolean`              | `true`                                                   | ASN inlay hints with the country flag and AS number.                                                                                                                                                         |
+| `bird2-lsp.intel.completion`             | `boolean`              | `true`                                                   | ASN completion.                                                                                                                                                                                              |
+| `bird2-lsp.intel.hover`                  | `boolean`              | `true`                                                   | ASN details on hover.                                                                                                                                                                                        |
+
+Changing `serverPath` or `trace.server` restarts the language server, and changing `enabled` starts or stops it. `serverPath`, `trace.server` and `validation.command` have `machine-overridable` scope, `performance.startupTimeoutMs` has `window` scope, and the other settings have `resource` scope, so they can differ per workspace folder. For the `bird2` language, the extension sets `editor.defaultFormatter` to `birdcc.bird2-lsp`.
+
+For example, to run a BIRD binary outside `PATH` and turn off ASN inlay hints:
+
+```json title="settings.json"
+{
+  "bird2-lsp.validation.command": "/usr/sbin/bird -p -c {file}",
+  "bird2-lsp.intel.inlayHints": false
+}
+```
+
+## Commands [#commands]
+
+The commands are in the Command Palette under the `BIRD2` category:
+
+| Command                         | ID                                 | Action                                                                                                                      |
+| ------------------------------- | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| BIRD2: Restart Language Server  | `bird2-lsp.restartLanguageServer`  | Stop and start the language server.                                                                                         |
+| BIRD2: Enable Language Server   | `bird2-lsp.enableLanguageServer`   | Set `bird2-lsp.enabled` to `true` in the settings of the active file's workspace folder, else the workspace, else the user. |
+| BIRD2: Disable Language Server  | `bird2-lsp.disableLanguageServer`  | Set `bird2-lsp.enabled` to `false` in the same settings target.                                                             |
+| BIRD2: Validate Active Document | `bird2-lsp.validateActiveDocument` | Run fallback validation on the active file. An unsaved file is saved first after confirmation.                              |
+| BIRD2: Format Active Document   | `bird2-lsp.formatActiveDocument`   | Run Format Document.                                                                                                        |
+| BIRD2: Open Extension Settings  | `bird2-lsp.openSettings`           | Open the Settings editor filtered to this extension.                                                                        |
+| BIRD2: Show Output Channel      | `bird2-lsp.showOutputChannel`      | Show the `BIRD2 LSP` output channel.                                                                                        |
+| BIRD2: Open Documentation       | `bird2-lsp.showDocumentation`      | Open the extension's package page on GitHub.                                                                                |
+| BIRD2: Reload Configuration     | `bird2-lsp.reloadConfiguration`    | Read the extension settings again.                                                                                          |
+
+Validate Active Document and Format Active Document also appear in the editor context menu of `bird2` files. The Command Palette hides them for other files.
+
+## Snippets [#snippets]
+
+The extension contributes 40 snippets for the `bird2` language. The first prefix of each snippet starts with `bird-`; most snippets also have shorter aliases such as `bgp`, `ospf`, `filter` and `if`.
+
+| Group             | Count | Prefixes                                                                                                                                                                                                                                                                                                    |
+| ----------------- | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Global statements | 7     | `bird-dir-router-id`, `bird-dir-include`, `bird-var-define`, `bird-dir-log`, `bird-dir-timebase`, `bird-dir-graceful-restart`, `bird-dir-watchdog`                                                                                                                                                          |
+| Protocols         | 14    | `bird-proto-tmpl`, `bird-proto-from-tmpl`, `bird-proto-device`, `bird-proto-kernel`, `bird-proto-static`, `bird-proto-direct`, `bird-proto-pipe`, `bird-proto-bgp`, `bird-proto-bgp-full`, `bird-proto-bgp-rr-client`, `bird-proto-bgp-confed`, `bird-proto-ospf`, `bird-proto-ospf-area`, `bird-proto-rip` |
+| Filters           | 8     | `bird-filter-simple`, `bird-filter-block`, `bird-filter-prefix`, `bird-filter-case`, `bird-filter-community`, `bird-filter-as-path`, `bird-filter-rpki`, `bird-filter-large-community`                                                                                                                      |
+| Functions         | 5     | `bird-func`, `bird-func-prepend`, `bird-func-community`, `bird-func-net-match`, `bird-func-metric`                                                                                                                                                                                                          |
+| Sets              | 3     | `bird-set-prefix`, `bird-set-community`, `bird-set-aspath`                                                                                                                                                                                                                                                  |
+| Control flow      | 3     | `bird-flow-if`, `bird-flow-case`, `bird-flow-for`                                                                                                                                                                                                                                                           |
+
+## Fallback validation [#fallback-validation]
+
+Fallback validation runs `bird2-lsp.validation.command` on saved files and shows the output as diagnostics with the source `bird -p`. It runs in these cases:
+
+- The language server is disabled with `bird2-lsp.enabled: false`, globally or for the file.
+- The language server did not start within `bird2-lsp.performance.startupTimeoutMs` or stopped with an error.
+- **BIRD2: Validate Active Document** runs it on demand, also while the language server is running.
+
+In the first two cases, the active file is validated when fallback validation starts. Other files are validated 800 ms after they are opened. While `bird2-lsp.validation.onSave` is `true`, files are also validated 800 ms after each save. Editing a file clears its fallback diagnostics until the next save.
+
+Validation runs only when all of these conditions are met:
+
+- `bird2-lsp.validation.enabled` is `true`.
+- The workspace is trusted.
+- The file is saved.
+- When a folder is open, the file is inside one of the workspace folders.
+- The file is within `bird2-lsp.performance.maxFileSizeBytes`.
+- The file meets one of the conditions in [File association](#file-association).
+- On macOS and Linux, the file is not writable by all users.
+
+The extension checks the command template before it runs it:
+
+- The template must contain `{file}` as a separate argument: `bird -p -c {file}` is accepted, `bird -p --config={file}` is rejected.
+- The shell metacharacters `;`, `&`, `|`, `` ` ``, `$`, `<` and `>` are rejected.
+- Environment variable expansion (`${env:NAME}`, `%NAME%`) is rejected.
+- Arguments that contain NUL, carriage return or line feed characters are rejected.
+- The first word must not be a shell (`bash`, `sh`, `zsh`, `fish`, `cmd`, `powershell`, `pwsh`).
+
+The extension runs the command without a shell and stops it after `bird2-lsp.validation.timeout` milliseconds. A command other than `bird -p -c {file}` runs only after you confirm it in a dialog, once per session. `bird.validateCommand` in `bird.config.json` configures the `bird -p` check of `birdcc lint`; the extension does not read it.
+
+## Status bar
+
+The status bar item shows the state of the language server. Select it to run the action in the table.
+
+| Text              | State                                                         | Action on select          |
+| ----------------- | ------------------------------------------------------------- | ------------------------- |
+| `BIRD2: LSP`      | The language server is running.                               | Restart the server.       |
+| `BIRD2: Starting` | The language server is starting.                              | Show the output channel.  |
+| `BIRD2: Stopping` | The language server is stopping.                              | Show the output channel.  |
+| `BIRD2: Idle`     | The language server is not running.                           | Restart the server.       |
+| `BIRD2: Error`    | The language server failed to start or stopped with an error. | Show the output channel.  |
+| `BIRD2: Fallback` | `bird2-lsp.enabled` is `false` for the active file.           | Validate the active file. |
+
+## Project configuration
+
+The language server reads `bird.config.json`, found by walking up from each file, and applies `main`, `workspaces`, `includePaths`, `crossFile`, `linter.enabled`, `linter.rules` and `formatter`. `birdcc.config.json` is read as an alias. Without a project file, the server detects an entry file in the workspace folder and analyzes the `include` graph from it. A notification names the detected entry, for example `Auto-detected BIRD entry: bird.conf (100% confidence).` When the server finds several entry files or only a low-confidence candidate, the notification suggests running `birdcc init`. [Project configuration](../project-configuration.mdx) describes the file and [entry detection](../project-configuration.mdx#entry-detection).
+
+## Logs and problems
+
+**BIRD2: Show Output Channel** opens the `BIRD2 LSP` output channel with the extension log. Set `bird2-lsp.trace.server` to `messages` or `verbose` to add the LSP messages. Error notifications of the extension have two actions: **Open FAQ** opens the matching entry of [docs/faq.md](https://github.com/bird-chinese-community/BIRD-LSP/blob/main/docs/faq.md) in the BIRD-LSP repository, and **Report Issue** opens the issue tracker. When you [report a bug](https://github.com/bird-chinese-community/BIRD-LSP/issues/new?template=bug-report.yml), include the extension version and the output channel log. The [FAQ](../faq.mdx) of this site lists known problems.
