@@ -1,5 +1,6 @@
 import {
   BookOpen,
+  Bot,
   CircleHelp,
   Code,
   FileCog,
@@ -23,6 +24,7 @@ import type { ReactNode } from "react";
  */
 export const iconComponents = {
   BookOpen,
+  Bot,
   CircleHelp,
   Code,
   FileCog,
