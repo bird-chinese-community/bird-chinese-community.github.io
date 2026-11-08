@@ -66,6 +66,19 @@ html > body[data-scroll-locked] {
   outline-offset: -2px;
 }
 
+/*
+ * Below 768px the table of contents bar is a 44px touch target, and the layout row that holds it
+ * follows the new height so the sticky offsets stay aligned.
+ */
+@media (width < 768px) {
+  #nd-docs-layout:has([data-toc-popover-trigger]) {
+    --fd-toc-popover-height: 2.75rem;
+  }
+  [data-toc-popover-trigger] {
+    height: 2.75rem;
+  }
+}
+
 /* The docs layout sits in a 1280px frame under the site header. */
 #nd-docs-layout {
   --fd-banner-height: var(--cc-header-height);
