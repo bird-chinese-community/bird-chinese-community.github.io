@@ -1,0 +1,190 @@
+---
+title: ASN data
+description: Source, content and updates of the ASN database in @birdcc/intel, where the language server uses it, and how to turn it off or replace it.
+---
+
+`@birdcc/intel` contains a snapshot of AS names, AS classes and country codes. The language server reads it for AS number completion, hover and inlay hints.
+
+The snapshot is the file `db/asn-db.bin.gz` in the package. The server reads the file from disk at startup and makes no network requests for ASN data.
+
+`@birdcc/intel` 1.0.0 contains the database update of 2026-11-02: 122,819 records in 1,608,171 bytes. The server log shows the count at startup:
+
+```text
+[intel] ASN database loaded: 122819 records
+```
+
+## Data source [#source]
+
+The data comes from `asns/asns.csv` on the `auto-update` branch of [BGP.Tools-OpenDB](https://github.com/Alice39s/BGP.Tools-OpenDB). That repository refreshes its ASN list from bgp.tools daily. The CSV columns are `asn`, `name`, `class` and `cc`.
+
+The build script `scripts/build-db.ts` of `@birdcc/intel` converts the CSV:
+
+1. It removes the `AS` prefix from each ASN and drops rows whose ASN is not a number.
+2. It stores the class `Unknown` as an empty string.
+3. It sorts the rows by ASN.
+4. It encodes four parallel arrays `[asns, names, classes, ccs]` as MessagePack and compresses the result with gzip level 9.
+
+## Database content [#content]
+
+Each lookup returns one entry:
+
+| Field  | Content                                                                                            |
+| ------ | -------------------------------------------------------------------------------------------------- |
+| `asn`  | AS number, 0 to 4294967295.                                                                        |
+| `name` | AS name.                                                                                           |
+| `cls`  | bgp.tools class, such as `Eyeball`, `Content`, `Carrier` or `T1`. Empty when the class is unknown. |
+| `cc`   | Two-letter country code, or an empty string.                                                       |
+
+Reserved AS numbers come from a table in the package, not from the CSV. Their entries have `cls: "Reserved"`, `cc: "ZZ"` and the defining document as `name`:
+
+| AS numbers                                       | `name`          |
+| ------------------------------------------------ | --------------- |
+| `0`                                              | `RFC 7607`      |
+| `112`                                            | `AS112 Project` |
+| `23456`                                          | `RFC 4893`      |
+| `64496` to `64511`, `65536` to `131071`          | `RFC 5398`      |
+| `64512` to `65534`, `4200000000` to `4294967294` | `RFC 6996`      |
+| `65535`, `4294967295`                            | `RFC 7300`      |
+
+Before it builds the lookup indexes, the loader rejects a database file in these cases:
+
+- The file decompresses to more than 32 MiB, or it is empty.
+- It holds more than 1,000,000 records, or its four arrays have different lengths.
+- Its ASNs are not integers from 0 to 4294967295 in strictly ascending order.
+- A country code is neither empty nor two uppercase letters.
+
+## Updates [#updates]
+
+The [`intel-asn-update.yml`](https://github.com/bird-chinese-community/BIRD-LSP/blob/main/.github/workflows/intel-asn-update.yml) workflow of BIRD-LSP rebuilds the database every Monday at 04:00 UTC:
+
+1. It runs `pnpm build:db` in `packages/@birdcc/intel`, which downloads the current CSV.
+2. It stops when `db/asn-db.bin.gz` is missing or smaller than 100,000 bytes.
+3. When the file changed, it adds a patch release note for `@birdcc/intel`.
+4. It opens or updates the pull request `chore(intel): Update ASN database` from the branch `feat/weekly-asn-database`.
+
+A merged update reaches users in the next release of `@birdcc/intel`, as a patch version. An installed package keeps its snapshot until you update the package. The BIRD2 LSP extension bundles the server and the database, so it gets a new snapshot with a new extension version.
+
+To build the file yourself, run these commands in a clone of [BIRD-LSP](https://github.com/bird-chinese-community/BIRD-LSP) after `pnpm install`:
+
+```sh
+pnpm --filter @birdcc/intel build:db
+pnpm --filter @birdcc/intel build:db -- --csv /path/to/asns.csv
+```
+
+The first command downloads the CSV. The second command reads a local copy; a relative path resolves against `packages/@birdcc/intel`. Both write `packages/@birdcc/intel/db/asn-db.bin.gz`.
+
+## Use in the language server [#features]
+
+The server treats a number as an AS number in these positions:
+
+- `local as <n>` and `neighbor <address> as <n>`.
+- `bgp_path.prepend(<n>)`, `bgp_path.delete(<n>)`, and each number inside `bgp_path ~ [ ... ]`.
+- The first number of `community.add((<n>, ...))` and `large_community.add((<n>, ...))`, with or without the `bgp_` prefix, and of `(<n>, <m>) ~ bgp_community`.
+- `define <NAME> = <n>` when `NAME` contains `ASN` or `COMMUNITY` as a word between underscores, such as `MY_ASN`.
+
+In the community and `define` positions, the server ignores numbers below 100, except 42. The `community.add` and `~ bgp_community` positions also ignore 65535.
+
+Hover and inlay hints skip text inside strings and after `#` or `//`. Completion also starts after `# AS<digits>` in a comment.
+
+| Feature     | Content                                                                                                                                  |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Completion  | Up to 10 AS numbers that start with the typed digits. An exact match comes first. The detail is `<flag> AS<n> · <name>`.                 |
+| Hover       | A table with the AS name and the ASN, plus the country and the class when they are present, and a link to BGP.Tools-OpenDB.              |
+| Inlay hints | `<flag> AS<n>` after the number. An ASN with more than six digits shows its first six digits followed by `..`, for example `AS420000..`. |
+
+`<flag>` shows one of these:
+
+- the regional indicator flag of `cc`
+- a white flag for reserved AS numbers
+- nothing, when `cc` is empty
+
+Inlay hints appear only for AS numbers that the database or the reserved table contains.
+
+## Turn the features off [#settings]
+
+Each feature has a setting. All settings default to `true`.
+
+| Language server setting | VS Code setting              | Effect of `false`                                      |
+| ----------------------- | ---------------------------- | ------------------------------------------------------ |
+| `intel.enabled`         | `bird2-lsp.intel.enabled`    | Turns off AS number completion, hover and inlay hints. |
+| `intel.completion`      | `bird2-lsp.intel.completion` | Turns off AS number completion.                        |
+| `intel.hover`           | `bird2-lsp.intel.hover`      | Turns off AS number hover.                             |
+| `intel.inlayHints`      | `bird2-lsp.intel.inlayHints` | Turns off AS number inlay hints.                       |
+
+In VS Code:
+
+```json title="settings.json"
+{
+  "bird2-lsp.intel.inlayHints": false
+}
+```
+
+Other clients send the setting in `initializationOptions.birdcc` or in the `bird2-lsp` section of `workspace/configuration`. For example, in Neovim:
+
+```lua
+vim.lsp.config("birdcc", {
+  settings = {
+    ["bird2-lsp"] = {
+      intel = { enabled = false },
+    },
+  },
+})
+```
+
+[Language server settings](./language-server.mdx#settings) lists the other keys.
+
+## Use another database file [#replace]
+
+`birdcc lsp` always loads the database of the installed `@birdcc/intel`. To load another file, start the server with `startLspServer` from `@birdcc/lsp` and the `asnDbPath` option:
+
+```ts title="server.mjs"
+import { startLspServer } from "@birdcc/lsp";
+
+startLspServer({ asnDbPath: "/srv/asn/asn-db.bin.gz" });
+```
+
+```sh
+node server.mjs --stdio
+```
+
+- The file must have the format that `scripts/build-db.ts` writes. [Updates](#updates) gives the build commands.
+- A relative `asnDbPath` resolves against the working directory of the server process. Use an absolute path.
+- Set the server command of the editor to this command. In VS Code, the setting is `bird2-lsp.serverPath`, for example `["node", "/srv/asn/server.mjs", "--stdio"]`.
+- `startLspServer({ disableAsnIntel: true })` starts the server without an ASN database.
+
+When the server cannot load the file, it keeps running and the AS number features return nothing, also for reserved AS numbers. The log shows the reason:
+
+```text
+[intel] ASN database unavailable: {"code":"missing","message":"ENOENT: no such file or directory, open '/srv/asn/asn-db.bin.gz'","dbPath":"/srv/asn/asn-db.bin.gz","version":{"packageVersion":"1.0.0"}}
+```
+
+The `code` is `missing`, `read`, `decompress`, `decode` or `schema`.
+
+## Query the database from code [#api]
+
+```sh
+npm install @birdcc/intel
+```
+
+```ts
+import { createAsnIntel } from "@birdcc/intel";
+
+const intel = createAsnIntel();
+if (!intel.available) {
+  throw new Error(`ASN database unavailable: ${intel.failure?.code}`);
+}
+
+console.log(intel.exactLookup(13335));
+console.log(intel.prefixSearch("1333", 3).map((entry) => entry.asn));
+console.log(intel.exactLookup(65001));
+```
+
+```text
+{ asn: 13335, name: 'Cloudflare, Inc.', cls: 'Content', cc: 'US' }
+[ 1333, 13330, 133300 ]
+{ asn: 65001, name: 'RFC 6996', cls: 'Reserved', cc: 'ZZ' }
+```
+
+- `createAsnIntel(dbPath)` loads another file. It does not throw when the file cannot be loaded. It returns `available: false`, empty lookups and a `failure` object.
+- `prefixSearch(prefix, limit)` matches the decimal form of each ASN, with a default limit of 10. An exact match comes first, followed by the other matches in lexicographic order.
+- Results depend on the snapshot in the installed package.

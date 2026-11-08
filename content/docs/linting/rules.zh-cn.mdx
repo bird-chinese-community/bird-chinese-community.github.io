@@ -1,0 +1,171 @@
+---
+title: lint 规则
+description: "@birdcc/linter 的 32 条 lint 规则，按六组列出默认级别，以及修改级别的 linter.rules 设置。"
+---
+
+`@birdcc/linter` 用六组共 32 条 lint 规则检查 BIRD 配置。`birdcc lint` 与语言服务器 (language server) 报告同一套规则。规则代码 (rule code) 的格式为 `<group>/<name>`，例如 `sym/filter-required`。
+
+| 组              | 规则数 | 默认级别  | 检查内容                                                       |
+| --------------- | ------ | --------- | -------------------------------------------------------------- |
+| [`sym`](#sym)   | 7      | `warning` | protocol、template、filter、function、table 与变量的定义和引用 |
+| [`cfg`](#cfg)   | 9      | `warning` | 配置结构、选项值与值的类型                                     |
+| [`net`](#net)   | 4      | `warning` | 前缀字面量与前缀长度                                           |
+| [`type`](#type) | 3      | `warning` | filter 与 function 表达式中的类型                              |
+| [`bgp`](#bgp)   | 5      | `info`    | BGP 协议设置                                                   |
+| [`ospf`](#ospf) | 4      | `info`    | OSPF 区域                                                      |
+
+出现级别 (severity) 为 `error` 的诊断 (diagnostic) 时，`birdcc lint` 以退出码 1 结束。[修改级别](#severity)说明如何把规则组提升到 `error`。
+
+## 符号 (`sym`) [#sym]
+
+| 规则                      | 默认级别  | 报告内容                                                                                                                                                                                                               |
+| ------------------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sym/undefined`           | `warning` | `from` 引用的 template 未定义，或者分析时无法加载某个 include                                                                                                                                                          |
+| `sym/duplicate`           | `warning` | 同一种类、同一名称的第二个定义                                                                                                                                                                                         |
+| `sym/proto-type-mismatch` | `warning` | protocol 继承了其他协议类型的 template                                                                                                                                                                                 |
+| `sym/filter-required`     | `warning` | `import filter` 或 `export filter` 子句没有名称，或者名称对应的 filter 未定义                                                                                                                                          |
+| `sym/function-required`   | `warning` | 调用的函数没有声明，也不在 linter 的内置函数列表中。列表包含 `roa_check` 与 `defined`，不包含 `aspa_check`，所以 linter 报告对 `aspa_check` 的调用                                                                     |
+| `sym/table-required`      | `warning` | `table` 子句没有名称，或者名称对应的 table 未定义                                                                                                                                                                      |
+| `sym/variable-scope`      | `warning` | filter 或 function 中对某个名称赋值，而函数体在此之前没有声明这个名称。对 `gw`、`ifname`、`onlink`、`dest`、`krt_prefsrc`、`bgp_local_pref`、`bgp_next_hop`、`bgp_next_hop_ll`、`preference`、`validated` 的赋值不报告 |
+
+## 配置 (`cfg`) [#cfg]
+
+| 规则                        | 默认级别  | 报告内容                                                                                                                                                                                                         |
+| --------------------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cfg/no-protocol`           | `warning` | 文件中既没有 `protocol`，也没有 `define`、`include`、`function`、`template` 或 `table` 声明                                                                                                                      |
+| `cfg/missing-router-id`     | `warning` | 文件中有不基于 template 的 BGP 协议，却没有 `router id`、`include` 或 `define`                                                                                                                                   |
+| `cfg/syntax-error`          | `warning` | `@birdcc/parser` 报告的任何解析问题                                                                                                                                                                              |
+| `cfg/value-out-of-range`    | `warning` | `local as` 或 `neighbor ... as` 超出 1–4294967294；channel 的 `limit` 或 `max prefix` 超出 0–4294967295；在解析器 (parser) 保留为文本的语句中，`hold` (3–65535)、`keepalive` (1–65535) 或 `ttl` (1–255) 超出范围 |
+| `cfg/switch-value-expected` | `warning` | `passive`、`stub`、`bfd`、`enabled`、`disabled`、`check link`、`deterministic med` 或 channel 的 `keep filtered` 后面的值不是布尔值                                                                              |
+| `cfg/number-expected`       | `warning` | `cfg/value-out-of-range` 所列选项的值不是数字。含大写字母或 `_` 的常量名可以接受；AS 值还可以是 `internal`、`external`、`ibgp`、`ebgp`                                                                           |
+| `cfg/incompatible-type`     | `warning` | `neighbor` 地址不是 IP 地址（`neighbor range` 时不是前缀），或者 `@birdcc/core` 拒绝 `router id` 的值                                                                                                            |
+| `cfg/ip-network-mismatch`   | `warning` | 非结构化的 `ipv4` channel 选项中出现 IPv6 地址，或者 `ipv6` channel 选项中出现 IPv4 地址                                                                                                                         |
+| `cfg/circular-template`     | `warning` | template 继承形成循环                                                                                                                                                                                            |
+
+## 网络 (`net`) [#net]
+
+| 规则                        | 默认级别  | 报告内容                                                                                                            |
+| --------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------- |
+| `net/invalid-prefix-length` | `warning` | filter 或 function 中的前缀字面量不是有效的 CIDR、长度范围的最小值大于最大值，或者 channel 的 `max prefix` 不是数字 |
+| `net/invalid-ipv4-prefix`   | `warning` | 点分格式前缀的地址不是有效的 IPv4 地址，或者前缀的地址中既没有 `.` 也没有 `:`                                       |
+| `net/invalid-ipv6-prefix`   | `warning` | 含有 `:` 的前缀，其地址不是有效的 IPv6 地址                                                                         |
+| `net/max-prefix-length`     | `warning` | IPv4 前缀长度或长度范围大于 32，或者 channel 的 `max prefix` 大于 32 (`ipv4`) 或 128 (`ipv6`)                       |
+
+## 类型 (`type`) [#type]
+
+| 规则                    | 默认级别  | 报告内容                                                                |
+| ----------------------- | --------- | ----------------------------------------------------------------------- |
+| `type/mismatch`         | `warning` | 带类型的局部变量在声明或赋值时使用了其他类型的值                        |
+| `type/not-iterable`     | `warning` | `~` 右侧不是 `[...]` 集合、`(a, b)` 元组、IP 地址、前缀、前缀模式或名称 |
+| `type/set-incompatible` | `warning` | `~` 左侧的类型与集合字面量第一个元素的类型不同                          |
+
+## BGP 规则 (`bgp`) [#bgp]
+
+| 规则                    | 默认级别 | 报告内容                                                                                                        |
+| ----------------------- | -------- | --------------------------------------------------------------------------------------------------------------- |
+| `bgp/missing-local-as`  | `info`   | BGP 协议既没有 `local as`，也没有基于 template                                                                  |
+| `bgp/missing-neighbor`  | `info`   | BGP 协议既没有 `neighbor`，也没有基于 template                                                                  |
+| `bgp/missing-remote-as` | `info`   | 在不基于 template 的协议中，`neighbor` 没有 AS 号，也没有 `internal` 或 `external`                              |
+| `bgp/as-mismatch`       | `info`   | 协议使用 internal 邻居，但邻居 AS 号与 `local as` 不同                                                          |
+| `bgp/timer-invalid`     | `info`   | `hold time` 超出 3–65535，`keepalive time` 超出 1–65535（0 表示关闭对应计时器），或者 `keepalive` 不小于 `hold` |
+
+## OSPF 规则 (`ospf`) [#ospf]
+
+| 规则                     | 默认级别 | 报告内容                                                          |
+| ------------------------ | -------- | ----------------------------------------------------------------- |
+| `ospf/missing-area`      | `info`   | OSPF 协议没有 `area`                                              |
+| `ospf/backbone-stub`     | `info`   | 配置为 `stub` 的骨干区域 (backbone area)，即区域 `0` 或 `0.0.0.0` |
+| `ospf/vlink-in-backbone` | `info`   | 骨干区域内的虚链路 (virtual link)                                 |
+| `ospf/asbr-stub-area`    | `info`   | 在 stub 区域内声明的 ASBR                                         |
+
+## 解析器与 core 的诊断 [#parser-and-core]
+
+linter 把 `@birdcc/parser` 与 `@birdcc/core` 的诊断归到规则代码下报告。原始代码与规则代码不同时，消息以方括号中的原始代码开头，例如 `[semantic/duplicate-definition] protocol 'd1' is already defined`。
+
+| 原始代码                                                                                     | 规则代码                    |
+| -------------------------------------------------------------------------------------------- | --------------------------- |
+| 解析器的全部五个问题代码                                                                     | `cfg/syntax-error`          |
+| `semantic/duplicate-definition`                                                              | `sym/duplicate`             |
+| `semantic/undefined-reference`、`semantic/missing-include`                                   | `sym/undefined`             |
+| `semantic/circular-template`                                                                 | `cfg/circular-template`     |
+| `semantic/invalid-router-id`、`semantic/invalid-neighbor-address`、`type/unknown-expression` | `cfg/incompatible-type`     |
+| `semantic/invalid-cidr`                                                                      | `net/invalid-prefix-length` |
+| `type/mismatch`                                                                              | `type/mismatch`             |
+| `type/undefined-variable`                                                                    | `sym/variable-scope`        |
+
+`linter.rules` 匹配规则代码，不匹配原始代码。
+
+## 文件角色 [#file-roles]
+
+linter 根据路径与内容给每个文件指定一个角色 (role)，角色决定哪些规则生效。
+
+- `bird.conf`、`bird2.conf`、`bird3.conf` 是入口文件 (entry file)。含有 `router id` 或 `include` 声明的文件也是入口文件，除非它所在的目录表明它是片段 (fragment) 或库 (library)。
+- 其他文件成为片段或库。linter 用下列检查归类这些文件：
+  - 目录名与文件名中的标记，例如 `peers`、`upstream`、`filters`、`lib`
+  - 文件所在目录或上级目录中是否有入口文件
+  - 文件是否声明了带名称的协议
+- 这些检查都无法归类的文件是入口文件。
+- 对片段与库，linter 去掉下列规则，因为这些规则需要的定义位于其他文件中：
+  - `sym/undefined`
+  - `sym/function-required`
+  - `sym/filter-required`
+  - `sym/table-required`
+  - `cfg/no-protocol`
+  - `cfg/missing-router-id`
+- 在跨文件分析 (cross-file analysis) 中，除入口文件外，linter 还会对每个文件去掉 `cfg/no-protocol` 与 `cfg/missing-router-id`。
+
+## 修改级别 [#severity]
+
+`birdcc lint` 与语言服务器从 `bird.config.json`（或其别名 `birdcc.config.json`）读取 `linter.rules`，并应用到诊断上：
+
+```json title="bird.config.json"
+{
+  "linter": {
+    "rules": {
+      "cfg/*": "error",
+      "cfg/syntax-error": "off",
+      "sym/filter-required": "info"
+    }
+  }
+}
+```
+
+- 与规则代码完全相同的键优先。
+- 否则使用匹配的、以 `/*` 结尾的最长键。`cfg/*` 匹配所有 `cfg/` 规则。其他通配写法（例如单独的 `*`）不匹配任何规则。
+- 可用的值为 `error`、`warning`、`info`、`off`。`off` 去掉该诊断。
+- `"linter": { "enabled": false }` 去掉静态分析 (static analysis) 的全部诊断。
+
+在这个示例中：
+
+- 所有 `cfg` 规则报告 `error`。
+- `cfg/syntax-error` 不报告任何内容。
+- `sym/filter-required` 报告 `info`。
+
+要让 `birdcc lint` 在 `sym`、`cfg`、`net`、`type` 组出现任何问题时失败，把这些组设为 `error`：
+
+```json title="bird.config.json"
+{
+  "main": "bird.conf",
+  "linter": {
+    "rules": {
+      "sym/*": "error",
+      "cfg/*": "error",
+      "net/*": "error",
+      "type/*": "error"
+    }
+  }
+}
+```
+
+[检查配置](./usage.mdx#fail-on-findings)给出这份配置的输出，配置参考的 [`linter` 部分](../configuration/reference.mdx#linter)列出其他键。
+
+## 规则集之外的代码 [#other-codes]
+
+`birdcc lint --bird` 增加两个来自 BIRD 校验的代码，级别都是 `error`：
+
+| 代码                | 报告内容                                                                       |
+| ------------------- | ------------------------------------------------------------------------------ |
+| `bird/parse-error`  | 校验命令（默认为 `bird -p`）写到 stderr 的错误行                               |
+| `bird/runner-error` | 校验命令无法启动、超时，或以非零状态退出且 stderr 没有输出；或者文件路径不安全 |
+
+语言服务器还会报告大小上限、配置错误与内部错误的代码，见 LSP 用法参考中的[诊断](../editors/language-server.mdx#diagnostics)。

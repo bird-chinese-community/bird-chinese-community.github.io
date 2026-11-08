@@ -4,7 +4,7 @@ description: How the BIRD-LSP packages parse, analyze, lint and format a BIRD co
 icon: Layers
 ---
 
-This page describes the internals of BIRD-LSP 1.0.0. [Package dependencies](./reference/packages.mdx#dependencies) shows which package uses which. Function and file names refer to the sources under [`packages/@birdcc/`](https://github.com/bird-chinese-community/BIRD-LSP/tree/main/packages/@birdcc), and workflow file names to [`.github/workflows/`](https://github.com/bird-chinese-community/BIRD-LSP/tree/main/.github/workflows) in the BIRD-LSP repository.
+This page describes the internals of BIRD-LSP 1.0.0. [Package dependencies](./packages.mdx#dependencies) shows which package uses which. Function and file names refer to the sources under [`packages/@birdcc/`](https://github.com/bird-chinese-community/BIRD-LSP/tree/main/packages/@birdcc), and workflow file names to [`.github/workflows/`](https://github.com/bird-chinese-community/BIRD-LSP/tree/main/.github/workflows) in the BIRD-LSP repository.
 
 ## Parser [#parser]
 
@@ -79,7 +79,7 @@ The default limits are:
 - 16 levels of nesting
 - 256 files
 
-The [`crossFile` keys](./reference/configuration.mdx#cross-file) of `bird.config.json` change these limits.
+The [`crossFile` keys](./configuration/reference.mdx#cross-file) of `bird.config.json` change these limits.
 
 Parsed documents come from a process-wide cache of 512 documents and 16 MiB.
 
@@ -110,12 +110,12 @@ flowchart TD
 
 - It maps parser and core diagnostics to rule codes with default severities.
 - It runs the rule functions of six groups.
-- It drops diagnostics that a fragment or library file cannot resolve on its own ([file roles](./reference/rules.mdx#file-roles)).
+- It drops diagnostics that a fragment or library file cannot resolve on its own ([file roles](./linting/rules.mdx#file-roles)).
 - It removes duplicates.
 
 Default severities are `warning` for `sym`, `cfg`, `net` and `type` rules and `info` for `bgp` and `ospf` rules.
 
-The language server then applies `linter.rules` from `bird.config.json` with `applyLintConfiguration` from `@birdcc/core`, and the CLI with its own `applySeverityOverrides`. Both resolve the severity of each code with `resolveSeverityOverride` from `@birdcc/core` ([Change severities](./reference/rules.mdx#severity)):
+The language server then applies `linter.rules` from `bird.config.json` with `applyLintConfiguration` from `@birdcc/core`, and the CLI with its own `applySeverityOverrides`. Both resolve the severity of each code with `resolveSeverityOverride` from `@birdcc/core` ([Change severities](./linting/rules.mdx#severity)):
 
 - An exact rule code wins.
 - Otherwise, the longest matching `prefix/*` key applies.
@@ -160,7 +160,7 @@ Both engines use the same line-based algorithm:
 - blank-line collapsing
 - no line wrapping
 
-[Formatting](./formatting.mdx#engines) describes the engines from the user side.
+[Formatting](./formatting/usage.mdx#engines) describes the engines from the user side.
 
 Arrows show the order of calls and the flow of data.
 
@@ -223,7 +223,7 @@ As a result, the WebAssembly module embeds the same grammar as `@birdcc/parser`.
 Two consumers load the module:
 
 - `@birdcc/formatter` passes `getBuffer()` to `addPlugin()` on a `@dprint/formatter` context for its default `dprint` engine.
-- The dprint CLI loads the same file through a path or an `npm:` specifier ([Use the dprint plugin](./formatting.mdx#dprint)).
+- The dprint CLI loads the same file through a path or an `npm:` specifier ([Use the dprint plugin](./formatting/dprint.mdx)).
 
 Arrows follow the build and data flow, from sources to consumers.
 
@@ -267,7 +267,7 @@ The server validates a document in three steps:
 
 The server publishes the diagnostics for the other files of the graph during the analysis, and the scheduler publishes the diagnostics of the document itself. When `crossFile.enabled` is `false`, `lintBirdConfig` lints the document on its own.
 
-[Diagnostics](./reference/language-server.mdx#diagnostics) in the language server reference describes the result.
+[Diagnostics](./editors/language-server.mdx#diagnostics) in the language server reference describes the result.
 
 Arrows show messages and calls in time order.
 
@@ -318,7 +318,7 @@ The language server picks the entry as follows:
 - When a config file exists, it takes the entry from `workspaces` or `main`.
 - Otherwise, it runs entry detection in the containing workspace folder.
 
-Both append `includePaths`, resolved against the directory of the config file, to the include search paths. [Entry detection](./project-configuration.mdx#entry-detection) and [include resolution](./project-configuration.mdx#include-resolution) describe the rules.
+Both append `includePaths`, resolved against the directory of the config file, to the include search paths. [Entry detection](./configuration/entries-and-includes.mdx#entry-detection) and [include resolution](./configuration/entries-and-includes.mdx#include-resolution) describe the rules.
 
 Arrows show control flow.
 
@@ -356,7 +356,7 @@ flowchart TD
 
 With `--bird` or `linter.withBird`, `runBirdValidation` runs the first available validation command template without a shell and converts its stderr into diagnostics.
 
-Severity overrides from `linter.rules` apply last. The command exits with status 1 when any diagnostic has the severity `error`. [Check with bird -p](./linting.mdx#bird) describes the options.
+Severity overrides from `linter.rules` apply last. The command exits with status 1 when any diagnostic has the severity `error`. [Check with bird -p](./linting/usage.mdx#bird) describes the options.
 
 Arrows show control flow.
 
@@ -390,7 +390,7 @@ The `intel-asn-update.yml` workflow runs this script every Monday at 04:00 UTC. 
 
 At startup, `startLspServer()` calls `createAsnIntel()`, which validates the file and builds lookup maps. The completion, hover and inlay hint handlers query these maps unless `bird2-lsp.intel.enabled` or the setting of that feature (`intel.completion`, `intel.hover`, `intel.inlayHints`) is `false`.
 
-[ASN data](./asn-data.mdx) describes the database and the settings.
+[ASN data](./editors/asn-data.mdx) describes the database and the settings.
 
 Arrows follow the data from the upstream CSV to the language server features.
 

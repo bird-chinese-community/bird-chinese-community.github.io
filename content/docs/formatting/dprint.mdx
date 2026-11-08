@@ -1,0 +1,83 @@
+---
+title: dprint plugin
+description: Format BIRD configuration files with the dprint CLI and @birdcc/dprint-plugin-bird, and the options of the plugin.
+---
+
+The dprint CLI can load `@birdcc/dprint-plugin-bird` directly, for example in a repository where dprint already formats other files.
+
+`npm:` plugin specifiers and additive `associations` require dprint 0.55.0 or newer. dprint 0.64.3 produces the results shown in the examples below.
+
+## Set up the plugin [#setup]
+
+<Steps>
+
+<Step>
+
+### Install dprint and the plugin
+
+```sh
+npm install --save-dev dprint @birdcc/dprint-plugin-bird
+```
+
+</Step>
+
+<Step>
+
+### Add the plugin to dprint.json
+
+```json title="dprint.json"
+{
+  "birdcc": {
+    "lineWidth": 100,
+    "indentWidth": 2,
+    "useTabs": false,
+    "safeMode": true
+  },
+  "plugins": ["npm:@birdcc/dprint-plugin-bird/dist/dprint-plugin-bird.wasm"]
+}
+```
+
+The `npm:` specifier without a version loads the package from `node_modules`. dprint searches upward from the directory of `dprint.json`.
+
+</Step>
+
+<Step>
+
+### Check and format the files
+
+```sh
+npx dprint check
+npx dprint fmt
+```
+
+`dprint check` prints a diff for each file that needs formatting and exits with a non-zero status (20 with dprint 0.64.3). `dprint fmt` writes the files.
+
+</Step>
+
+</Steps>
+
+## Plugin options [#options]
+
+The plugin options go in the `birdcc` object of `dprint.json`. dprint does not read `bird.config.json`.
+
+| Key           | Default                                             | Description                                                                                                        |
+| ------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `lineWidth`   | `lineWidth` of the dprint configuration, else 80    | An expression line longer than this value also keeps the spacing before its comment. The plugin never wraps lines. |
+| `indentWidth` | `indentWidth` of the dprint configuration, else 2   | Spaces for each indentation level. The key in `bird.config.json` is `indentSize`.                                  |
+| `useTabs`     | `useTabs` of the dprint configuration, else `false` | Indent with one tab for each level.                                                                                |
+| `safeMode`    | `true`                                              | Run the check inside the plugin. The `@birdcc/parser` comparison of `@birdcc/formatter` does not run.              |
+
+- An unknown key in the `birdcc` object stops dprint with `Unknown property in configuration`. The JSON schema is [`schemas/dprint-plugin-bird.schema.json`](https://github.com/bird-chinese-community/BIRD-LSP/blob/main/schemas/dprint-plugin-bird.schema.json).
+- The plugin formats every file with the extension `.conf` or `.bird`. To exclude other `.conf` files or to add file names, set `associations`:
+
+  ```json title="dprint.json"
+  {
+    "birdcc": {
+      "associations": ["!**/nginx.conf", "**/*.bird3"]
+    }
+  }
+  ```
+
+- Two other plugin references load the same module:
+  - A file path: `"./node_modules/@birdcc/dprint-plugin-bird/dist/dprint-plugin-bird.wasm"`
+  - A pinned version that dprint downloads from the npm registry: `"npm:@birdcc/dprint-plugin-bird@1.0.0/dist/dprint-plugin-bird.wasm"`

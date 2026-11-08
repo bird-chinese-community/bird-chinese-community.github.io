@@ -1,0 +1,321 @@
+---
+title: CLI 参考
+description: "@birdcc/cli 1.0.0 中 birdcc 命令的子命令、选项、退出码与 JSON 输出。"
+icon: Terminal
+---
+
+`birdcc` 命令来自 npm 包 `@birdcc/cli`，需要 Node.js 22 或更新版本。
+
+```sh
+birdcc <command> [options]
+```
+
+| 命令                 | 说明                                                                      |
+| -------------------- | ------------------------------------------------------------------------- |
+| `birdcc lint [file]` | 检查一份配置及其 include 图 (include graph)。见 [`lint`](#lint)。         |
+| `birdcc fmt [file]`  | 检查或重写单个文件的格式。见 [`fmt`](#fmt)。                              |
+| `birdcc init [root]` | 探测入口文件 (entry file) 并写出 `bird.config.json`。见 [`init`](#init)。 |
+| `birdcc lsp --stdio` | 在 stdin 与 stdout 上启动语言服务器 (language server)。见 [`lsp`](#lsp)。 |
+
+## 全局选项 [#global-options]
+
+所有命令都接受下列选项：
+
+| 选项              | 说明                                                                          |
+| ----------------- | ----------------------------------------------------------------------------- |
+| `-v`, `--verbose` | 把进度与耗时输出到 stderr，每行以 `[verbose]` 开头。                          |
+| `--debug-json`    | 在 `lint` 与 `fmt` 的 JSON 输出中加入调试字段。见 [JSON 输出](#json-output)。 |
+| `-h`, `--help`    | 输出帮助文本。`birdcc <command> --help` 输出单个命令的选项。                  |
+
+- `birdcc` 没有 `--version` 选项，`-v` 表示 `--verbose`。全局安装时，用 `npm ls --global @birdcc/cli` 查看已安装的版本。
+- 未知选项会输出 `CACError` 堆栈并以退出码 1 结束。
+- 未知命令名不输出任何内容，退出码为 0。运行 `birdcc --help` 查看命令列表。
+
+## 检查配置 (`birdcc lint`) [#lint]
+
+```sh
+birdcc lint [file] [options]
+```
+
+| 选项                           | 默认值                           | 说明                                                                      |
+| ------------------------------ | -------------------------------- | ------------------------------------------------------------------------- |
+| `--format <format>`            | `text`                           | `text` 或 `json`。其他值会让命令以退出码 1 结束。                         |
+| `--json`                       | 关闭                             | 等同于 `--format json`，优先于 `--format`。                               |
+| `--bird`                       | 关闭                             | 同时运行 BIRD 校验命令。配置中的 `linter.withBird: true` 也会开启它。     |
+| `--cross-file`                 | 开启                             | 分析 include 图。`--no-cross-file` 或 `crossFile.enabled: false` 关闭它。 |
+| `--include-max-depth <n>`      | `crossFile.maxDepth`，否则为 16  | include 最大嵌套深度，必须为正整数。                                      |
+| `--include-max-files <n>`      | `crossFile.maxFiles`，否则为 256 | include 图中的最大文件数，必须为正整数。                                  |
+| `--validate-command <command>` | 见 [BIRD 校验](#bird-validation) | `--bird` 使用的命令模板。                                                 |
+
+[检查配置](./linting/usage.mdx)给出这个命令的用法。
+
+### 目标文件
+
+- 传入 `file` 时，birdcc 检查该文件，并从该文件所在目录或上级目录中最近的 `bird.config.json` 读取设置。
+- 不传 `file` 时，birdcc 从当前目录向上查找 `bird.config.json`，检查 `main` 指定的文件；没有设置 `main` 时检查 `bird.conf`。
+- 配置设置了 `workspaces` 时，birdcc 检查每个匹配目录中的 `bird.conf`。没有目录匹配时，命令失败。
+- 既没有文件参数也没有配置文件时，命令失败。
+
+### 跨文件分析 (cross-file analysis)
+
+- 含有 `include` 语句的文件是 birdcc 所分析的 include 图的入口。
+- 对其他文件，birdcc 在文件所在目录及最多四层上级目录中探测入口文件，然后分析探测到的入口文件的 include 图；探测不到入口文件时，分析该文件本身的 include 图。
+- 输出包含该 include 图的诊断 (diagnostic)。探测到的入口文件没有 include 该文件时，输出中没有该文件的诊断。用 `--no-cross-file` 单独检查这类文件。
+- `include` 路径先相对于发起 include 的文件解析。之后 birdcc 依次尝试探测到的项目目录、入口文件所在目录，再尝试每个 `includePaths` 条目。所检查的文件含有 `include` 时，birdcc 在 `includePaths` 之前只尝试该文件所在目录。
+- include 目标位于工作区根目录 (workspace root) 之外时，birdcc 跳过它并报告为 `sym/undefined`，除非 `crossFile.externalIncludes` 为 `true`。所检查的文件含有 `include` 或探测不到入口文件时，工作区根目录是该文件所在目录；其他情况下是探测到的项目目录。
+- include 图的默认上限如下：
+  - 嵌套 16 层
+  - 256 个文件
+  - 单个文件 2 MiB
+  - 总计 16 MiB
+- birdcc 跳过超过上限的 include，并报告为 `sym/undefined`。所检查的文件本身超过大小上限时，命令失败。
+
+### 文本输出
+
+每条诊断占一行，依次包含：
+
+1. 级别 (severity)
+2. 规则代码 (rule code)
+3. 文件 URI
+4. 行号与列号，都从 1 开始
+5. 消息
+
+BIRD 校验产生的诊断没有文件 URI。
+
+```text
+WARNING sym/filter-required [file:///srv/bird/bird.conf] 10:19 Protocol 'upstream' references unknown filter 'peer_in'
+```
+
+没有诊断时，命令输出 `No problems found during linting`。
+
+`sym`、`cfg`、`net`、`type` 规则默认报告 `warning`，`bgp` 与 `ospf` 规则默认报告 `info`。见 [lint 规则 (lint rules)](./linting/rules.mdx)。
+
+### BIRD 校验 [#bird-validation]
+
+`--bird` 在静态分析 (static analysis) 之后运行校验命令，并把校验命令报告的错误加入输出。
+
+birdcc 按下列顺序选用第一个可用的命令模板：
+
+1. `--validate-command`
+2. `bird.config.json` 中的 `bird.validateCommand`
+3. `bird.binaryPath`，生成 `<binaryPath> -p -c {file}`
+4. 环境变量 `BIRD_BIN`，生成 `"<BIRD_BIN>" -p -c {file}`
+5. `bird -p -c {file}`
+
+```sh
+BIRD_BIN=/usr/sbin/bird birdcc lint bird.conf --bird
+birdcc lint bird.conf --bird --validate-command "/usr/sbin/bird -p -c {file}"
+```
+
+- birdcc 按空白切分模板，单引号与双引号可以把多个词组成一个参数。
+- birdcc 把 `{file}` 替换为所检查文件的绝对路径。模板中没有 `{file}` 时，birdcc 把路径追加到末尾。
+- birdcc 不经过 shell 运行命令，工作目录为所检查文件所在目录，超时时间为 10 秒。
+- 文件路径包含 `;`、`|`、`&`、`$`、`<`、`>`、反引号或控制字符时，birdcc 不运行命令。
+
+birdcc 把命令写到 stderr 的行转换为诊断：
+
+| 代码                | 级别    | 来源                                                                                                                                                                                              |
+| ------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `bird/parse-error`  | `error` | 形如 `<file>:<line>:<column> <message>`、`Parse error <file>, line <line>: <message>` 或 `<file>, line <line>:<column> <message>` 的 stderr 行。其他非空 stderr 行也产生这个代码，位置为第 1 行。 |
+| `bird/runner-error` | `error` | 文件路径不安全、模板中的引号没有闭合、命令无法启动或超时，或者命令以非零状态退出且 stderr 没有输出。                                                                                              |
+
+## 格式化文件 (`birdcc fmt`) [#fmt]
+
+```sh
+birdcc fmt [file] [options]
+```
+
+| 选项                | 默认值                              | 说明                                                                               |
+| ------------------- | ----------------------------------- | ---------------------------------------------------------------------------------- |
+| `--check`           | 关闭                                | 报告文件是否需要格式化 (formatting)，不修改文件。不传 `--write` 时命令的行为相同。 |
+| `--write`           | 关闭                                | 把格式化结果写回文件。不能与 `--check` 同时使用。                                  |
+| `--engine <engine>` | `formatter.engine`，否则为 `dprint` | `dprint` 或 `builtin`，不区分大小写。                                              |
+| `--json`            | 关闭                                | 输出 `{ "changed", "filePath" }`，不输出提示消息。                                 |
+
+```sh
+birdcc fmt bird.conf --check
+birdcc fmt bird.conf --write --engine builtin
+```
+
+- `fmt` 每次格式化一个文件。传入目录会报错。
+- 不传 `file` 时，`fmt` 使用最近的 `bird.config.json` 中的 `main`；没有设置 `main` 时使用 `bird.conf`。配置设置了 `workspaces` 时，必须传入文件。
+- 格式化选项来自 `bird.config.json` 的 [`formatter` 部分](./configuration/reference.mdx#formatter)：
+  - `indentSize`，默认 2
+  - `lineWidth`，默认 80
+  - `useTabs`，默认 `false`
+  - `safeMode`，默认 `true`
+- `--engine` 与 `formatter.engine` 都没有设置且 `dprint` 引擎失败时，birdcc 改用 `builtin` 引擎格式化。显式指定引擎时，birdcc 报告这次失败。
+- `--write` 先写入临时文件，再把临时文件重命名为原文件。文件已经符合格式时，birdcc 不改动它。
+
+| 结果                            | 消息                                                                           | 退出码 |
+| ------------------------------- | ------------------------------------------------------------------------------ | ------ |
+| 检查，无需修改                  | `Format check passed — all files look good` (stdout)                           | 0      |
+| 检查，需要修改                  | ``Format check failed. Run `birdcc fmt <file> --write` to fix.`` (stderr)      | 1      |
+| `--write`，文件已修改           | `Files formatted successfully`                                                 | 0      |
+| `--write`，无需修改             | `All files are already properly formatted`                                     | 0      |
+| 同时使用 `--check` 与 `--write` | `--check and --write cannot be used together` (stderr)                         | 1      |
+| 未知引擎                        | `Invalid formatter engine: "<engine>" (choose from: dprint, builtin)` (stderr) | 1      |
+
+[格式化配置](./formatting/usage.mdx)介绍两个引擎与安全模式 (safe mode)。
+
+## 初始化配置 (`birdcc init`) [#init]
+
+```sh
+birdcc init [root] [options]
+```
+
+| 选项                   | 默认值             | 说明                                                                |
+| ---------------------- | ------------------ | ------------------------------------------------------------------- |
+| `--config-name <name>` | `bird.config.json` | 写出的文件名。                                                      |
+| `--dry-run`            | 关闭               | 输出候选文件、结论，以及 `init` 将要写出的配置。                    |
+| `--write`              | 关闭               | 写出配置文件。                                                      |
+| `--force`              | 关闭               | 覆盖已有的配置文件。                                                |
+| `--json`               | 关闭               | 以 JSON 输出探测结果。只有同时传入 `--write` 时 birdcc 才写出文件。 |
+| `--max-depth <n>`      | 8                  | 扫描的目录深度。                                                    |
+| `--max-files <n>`      | 20000              | 扫描的文件数量。                                                    |
+| `--ignore <patterns>`  | 无                 | 在默认列表之外要跳过的目录名，以逗号分隔。目录名必须完全一致。      |
+
+```sh
+birdcc init --dry-run
+birdcc init --write
+```
+
+- `root` 默认为当前目录。探测扫描 `.conf` 文件。
+- 探测跳过隐藏目录以及 `node_modules`、`dist`、`build`、`target`、`vendor`、`coverage`、`__tests__`、`test`、`tests`、`fixtures`、`examples`、`example`、`docs`。
+- 只有一个入口文件时写出 `"main": "./<path>"`；有多个相互独立的入口文件时写出 `"workspaces": ["<dir>/", ...]`。
+- 文件总是包含 `$schema`。birdcc 在最多 5 个入口文件中探测到缩进时，文件还包含 `formatter.indentSize`（2、4 或 8）。
+- 传入 `--write`，或者 stdout 不是终端（CI 任务、管道、重定向）时，birdcc 写出文件。在终端中不传 `--write` 时，birdcc 输出探测结果和 `Run with --write to create bird.config.json`。
+- 目标文件已存在且设置了 `main` 或 `workspaces` 时，`init` 输出提示并以退出码 0 结束，不进行探测。`--force` 跳过这项检查。这项检查同样适用于 `--dry-run` 与 `--json`。
+
+[入口探测 (entry detection)](./configuration/entries-and-includes.mdx#entry-detection)说明 birdcc 如何给候选文件打分。
+
+## 启动语言服务器 (`birdcc lsp`) [#lsp]
+
+```sh
+birdcc lsp --stdio
+```
+
+`birdcc lsp` 在 stdin 与 stdout 上启动 `@birdcc/lsp` 语言服务器。[LSP 用法参考](./editors/language-server.mdx)列出语言服务器的功能与设置。
+
+`--stdio` 是必需的。缺少 `--stdio` 时，命令输出 ``Only `birdcc lsp --stdio` is currently supported`` 并以退出码 1 结束。
+
+## 项目配置 (project configuration) [#project-configuration]
+
+birdcc 从目标文件所在目录，或最近的含有配置文件的上级目录读取 `bird.config.json` 或其别名 `birdcc.config.json`，一直查找到文件系统根目录。同一目录中两个文件名都存在时，birdcc 使用 `bird.config.json`。
+
+| 键                                                  | 使用方                                                    |
+| --------------------------------------------------- | --------------------------------------------------------- |
+| `main`、`workspaces`                                | 不带文件参数的 `lint` 与 `fmt`。`fmt` 拒绝 `workspaces`。 |
+| `includePaths`                                      | `lint` 的 include 解析，相对于配置文件。                  |
+| `crossFile.*`                                       | `lint`：`enabled`、include 图上限与 `externalIncludes`。  |
+| `linter.enabled`、`linter.withBird`、`linter.rules` | `lint`。`"enabled": false` 关闭静态分析。                 |
+| `bird.validateCommand`、`bird.binaryPath`           | `lint --bird`。                                           |
+| `formatter.*`                                       | `fmt`。                                                   |
+
+`crossFile`、`formatter`、`linter`、`bird` 中的未知键会报错：命令输出 `Invalid BIRD project config at <path>: <key>: <message>` 并以退出码 1 结束。
+
+[配置参考](./configuration/reference.mdx)介绍每个键。
+
+## 退出码 [#exit-codes]
+
+| 命令   | 退出码 0                                                 | 退出码 1                                                                                                      |
+| ------ | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `lint` | 没有级别为 `error` 的诊断。                              | 存在级别为 `error` 的诊断，或命令失败：没有目标文件、文件无法读取、配置无效、选项值无效、文件超过大小上限。   |
+| `fmt`  | `--write` 完成，或检查没有发现需要修改的内容。           | 检查发现需要修改的内容，或命令失败。                                                                          |
+| `init` | 已写出或输出配置，或保留了已有的带入口的配置。           | 未传 `--dry-run` 或 `--json` 时：没有探测到入口文件、无法安全地选定入口文件，或文件已存在且没有传 `--force`。 |
+| `lsp`  | 客户端在 `exit` 之前或关闭 stdin 之前发送了 `shutdown`。 | 缺少 `--stdio`，或客户端没有发送 `shutdown` 就发送了 `exit` 或关闭了 stdin。                                  |
+
+## JSON 输出 [#json-output]
+
+### 检查结果 (`lint --format json`)
+
+`birdcc lint --format json` 与 `birdcc lint --json` 输出一个对象：
+
+| 字段          | 类型   | 说明                                                                                                                                                                         |
+| ------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `diagnostics` | array  | 诊断列表，字段见下表。                                                                                                                                                       |
+| `files`       | number | 目标文件数。                                                                                                                                                                 |
+| `rules`       | number | `linter.rules` 中的键数。                                                                                                                                                    |
+| `errors`      | number | 级别为 `error` 的诊断数。                                                                                                                                                    |
+| `warnings`    | number | 级别为 `warning` 的诊断数，不统计 `info` 诊断。                                                                                                                              |
+| `elapsedMs`   | number | 运行时间，单位为毫秒。                                                                                                                                                       |
+| `debug`       | object | 仅在传入 `--debug-json` 时出现：`configPath`、`targetFiles`、来自命令行的 `includeMaxDepth` 与 `includeMaxFiles`，以及来自选项或配置的 `validateCommand`。未设置的值不输出。 |
+
+| 诊断字段                      | 类型   | 说明                                                                                                                                                                                |
+| ----------------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `code`                        | string | 规则代码，例如 `sym/filter-required`；BIRD 校验产生的 `bird/parse-error` 与 `bird/runner-error`。                                                                                   |
+| `message`                     | string | 诊断文本。                                                                                                                                                                          |
+| `severity`                    | string | `error`、`warning` 或 `info`。                                                                                                                                                      |
+| `source`                      | string | `parser`、`core`、`linter` 或 `bird`。                                                                                                                                              |
+| `range`                       | object | `line`、`column`、`endLine`、`endColumn`，都从 1 开始。                                                                                                                             |
+| `uri`                         | string | 文件的 `file://` URI。BIRD 校验诊断没有 `uri`。                                                                                                                                     |
+| `url`                         | string | 由规则代码拼出的 `https://github.com/bird-chinese-community/BIRD-LSP/blob/main/docs/rules/<code>.md`。仓库中没有这个地址的页面，每条规则的说明见 [lint 规则](./linting/rules.mdx)。 |
+| `help`                        | string | 与 `message` 相同的文本。                                                                                                                                                           |
+| `causes`、`related`、`labels` | array  | 总是为空。                                                                                                                                                                          |
+
+```json
+{
+  "diagnostics": [
+    {
+      "code": "sym/filter-required",
+      "message": "Protocol 'upstream' references unknown filter 'peer_in'",
+      "severity": "error",
+      "source": "linter",
+      "range": { "line": 10, "column": 19, "endLine": 10, "endColumn": 26 },
+      "uri": "file:///srv/bird/bird.conf",
+      "causes": [],
+      "related": [],
+      "labels": [],
+      "url": "https://github.com/bird-chinese-community/BIRD-LSP/blob/main/docs/rules/sym/filter-required.md",
+      "help": "Protocol 'upstream' references unknown filter 'peer_in'"
+    }
+  ],
+  "files": 1,
+  "rules": 4,
+  "errors": 1,
+  "warnings": 0,
+  "elapsedMs": 48
+}
+```
+
+### 格式化结果 (`fmt --json`)
+
+```json
+{
+  "changed": true,
+  "filePath": "/srv/bird/bird.conf"
+}
+```
+
+`--debug-json` 加入 `elapsedMs` 与 `engine`。`--engine` 与 `formatter.engine` 都没有设置时，`engine` 为 `"default"`。配置设置了 `indentSize` 与 `lineWidth` 时，也会加入这两个字段。
+
+### 探测结果 (`init --json`)
+
+`birdcc init --json` 输出探测结果：
+
+| 字段         | 类型           | 说明                                                                                                                                                           |
+| ------------ | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `kind`       | string         | `single`、`single-ambiguous`、`monorepo-multi-entry`、`monorepo-multi-role` 或 `not-found`。                                                                   |
+| `confidence` | number         | 0 到 100。                                                                                                                                                     |
+| `primary`    | object 或 null | 排名最高的候选文件。                                                                                                                                           |
+| `candidates` | array          | 每个候选文件包含 `path`、`score`、`signals` (`name`、`delta`)、`role`、`visitedCount`、`missingIncludes`、`qualified`、`declarationKinds`、`includedByCount`。 |
+| `warnings`   | array          | 每条警告包含 `code`、`message` 与可选的 `path`。                                                                                                               |
+
+`init` 保留已有配置时，输出只有一行：`{"skipped":true,"reason":"Config already exists with entry configuration","configPath":"<path>"}`。
+
+### 类型定义与 schema
+
+`@birdcc/cli` 为这些对象导出类型与 zod 4 schema：
+
+- `@birdcc/cli/output-types`：TypeScript 类型，例如 `BirdLintJsonOutput`、`BirdLintDiagnostic`、`BirdFmtJsonOutput`、`BirdInitJsonOutput`。
+- `@birdcc/cli/output-schemas`：`BirdLintJsonOutputSchema`、`BirdLintDiagnosticSchema`、`BirdLintDiagnosticWithExtrasSchema`、`BirdFmtJsonOutputSchema`、`BirdInitJsonOutputSchema`、`InitCandidateJsonSchema`。`BirdInitJsonOutputSchema` 校验探测结果，不校验 `skipped` 对象。
+
+```ts
+import { readFile } from "node:fs/promises";
+import { BirdLintJsonOutputSchema } from "@birdcc/cli/output-schemas";
+
+const report = BirdLintJsonOutputSchema.parse(
+  JSON.parse(await readFile("birdcc-lint.json", "utf8")),
+);
+console.log(`${report.errors} errors, ${report.warnings} warnings`);
+```

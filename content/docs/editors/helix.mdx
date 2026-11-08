@@ -1,0 +1,61 @@
+---
+title: Helix and other LSP clients
+description: Connect Helix and other LSP clients to the birdcc language server.
+---
+
+Helix and other LSP clients start the language server with `birdcc lsp --stdio`. [Installation](../getting-started/installation.mdx#cli) describes how to install `birdcc`.
+
+## Configure Helix [#helix]
+
+Add a language and a language server to `languages.toml`, either `~/.config/helix/languages.toml` or `.helix/languages.toml` in the project:
+
+```toml title="languages.toml"
+[[language]]
+name = "bird2"
+scope = "source.bird2"
+file-types = [
+  "bird",
+  "bird2",
+  "bird3",
+  { glob = "bird.conf" },
+  { glob = "bird2.conf" },
+  { glob = "bird3.conf" },
+  { glob = "bird6.conf" },
+]
+roots = ["bird.config.json", "birdcc.config.json"]
+comment-tokens = "#"
+language-servers = ["birdcc"]
+
+[language-server.birdcc]
+command = "birdcc"
+args = ["lsp", "--stdio"]
+```
+
+Helix sends the `config` table of a language server as `initializationOptions`, and the server reads its settings from the `birdcc` key of that object. Put settings under `[language-server.birdcc.config.birdcc]`:
+
+```toml title="languages.toml"
+[language-server.birdcc.config.birdcc.intel]
+hover = false
+```
+
+Helix has no grammar for BIRD, so this configuration adds language features without syntax highlighting.
+
+## Other LSP clients [#other-lsp-clients]
+
+Configure the client with these values:
+
+| Item         | Value                                                                                                                                                      |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Command      | `birdcc lsp --stdio`, or `node <path>/node_modules/@birdcc/lsp/dist/server.js --stdio` when `@birdcc/lsp` is installed as a dependency.                    |
+| Transport    | JSON-RPC over stdin and stdout.                                                                                                                            |
+| Files        | BIRD configuration files. The server decides from the file name and content which files to analyze; it does not use the language ID that the client sends. |
+| Root markers | `bird.config.json`, `birdcc.config.json`.                                                                                                                  |
+| Settings     | `initializationOptions.birdcc`, or the `bird2-lsp` section of `workspace/configuration`. See [Language server settings](./language-server.mdx#settings).   |
+
+The server analyzes the same files as the VS Code extension:
+
+- the file that `main` points to
+- files named `bird.conf`, `bird2.conf`, `bird3.conf` or `bird6.conf`
+- files that contain BIRD declarations
+
+[File association](./vscode.mdx#file-association) lists the conditions.

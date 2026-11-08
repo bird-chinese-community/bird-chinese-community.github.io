@@ -1,0 +1,50 @@
+---
+title: Without setup-birdcc
+description: Install Node.js, birdcc and BIRD in a GitHub Actions workflow without the setup-birdcc action, then check the configuration.
+---
+
+The workflow below installs Node.js with `actions/setup-node`, `birdcc` with npm and BIRD 2 with apt. It does not use setup-birdcc.
+
+The CLI needs Node.js 22 or newer. BIRD is necessary only for `--bird`. Like the [basic workflow](./github-actions.mdx#basic-workflow) of setup-birdcc, this workflow expects `bird.config.json` with a `main` entry.
+
+```yaml title=".github/workflows/bird.yml"
+name: BIRD config
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install birdcc
+        run: npm install --global @birdcc/cli@1.0.0
+
+      - name: Install BIRD 2
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bird2
+
+      - name: Lint and parse with BIRD
+        run: birdcc lint --bird
+        env:
+          BIRD_BIN: /usr/sbin/bird
+
+      - name: Check formatting
+        run: birdcc fmt --check
+```
+
+The Ubuntu `bird2` package installs the binary at `/usr/sbin/bird`. Without `--bird`, remove the BIRD installation step.
+
+To keep the JSON report of a run, write it to a file with `birdcc lint --format json > birdcc-lint.json`. The [JSON output](../cli.mdx#json-output) reference lists the fields.

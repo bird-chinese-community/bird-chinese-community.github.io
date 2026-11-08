@@ -1,0 +1,35 @@
+---
+title: Vim
+description: 在 Vim 中配置 BIRD.vim 与 birdcc 语言服务器。
+---
+
+Vim 从 BIRD.vim 获得语法高亮和文件类型识别 (filetype detection)，通过 LSP 插件从 birdcc 语言服务器 (language server) 获得语言功能。[安装](../getting-started/installation.mdx#cli)说明如何安装 `birdcc`。
+
+## 安装 BIRD.vim [#bird-vim]
+
+[BIRD.vim](https://github.com/bird-chinese-community/BIRD.vim) 为 `bird2` 文件类型提供语法高亮、文件类型识别和文件类型插件 (filetype plugin)，文件类型识别规则与 [BIRD.nvim](./neovim.mdx#bird-nvim) 相同。用 vim-plug 安装：
+
+```vim
+Plug 'bird-chinese-community/BIRD.vim'
+```
+
+也可以把它克隆到原生包目录：
+
+```sh
+git clone https://github.com/bird-chinese-community/BIRD.vim \
+  ~/.vim/pack/plugins/start/BIRD.vim
+```
+
+`:help bird2` 打开插件文档。要关闭对 `.conf` 文件的内容检查，设置 `let g:bird2_heuristic_detect = 0`。
+
+## 启动语言服务器 [#language-server]
+
+BIRD.vim 不启动语言服务器。使用 [vim-lsp](https://github.com/prabirshrestha/vim-lsp) 插件时，为 `bird2` 文件类型注册 `birdcc`：
+
+```vim title=".vimrc"
+au User lsp_setup call lsp#register_server({
+    \ 'name': 'birdcc',
+    \ 'cmd': {server_info->['birdcc', 'lsp', '--stdio']},
+    \ 'allowlist': ['bird2'],
+    \ })
+```

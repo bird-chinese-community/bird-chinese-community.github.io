@@ -28,7 +28,7 @@ The build reads the Git history of each page for the contributor list, so it run
 | `brand/theme.css`             | Brand palette and font stacks                                 |
 | `design.md`                   | Presentation rules of the site                                |
 
-A link to another page uses its source file, for example `[CLI](./reference/cli.mdx)`. The build rewrites it to the page URL in the language of the linking page and fails on a link to a missing file.
+A link to another page uses its source file, for example `[Lint rules](./linting/rules.mdx)`. The build rewrites it to the page URL in the language of the linking page and fails on a link to a missing file.
 
 ## Deployment
 

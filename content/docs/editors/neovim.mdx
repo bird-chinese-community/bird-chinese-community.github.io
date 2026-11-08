@@ -1,0 +1,73 @@
+---
+title: Neovim
+description: Set up BIRD.nvim and the birdcc language server in Neovim.
+---
+
+Neovim gets syntax highlighting and filetype detection from BIRD.nvim, and language features from the language server. `birdcc lsp --stdio` starts the server; [Installation](../getting-started/installation.mdx#cli) describes how to install `birdcc`.
+
+## Install BIRD.nvim [#bird-nvim]
+
+[BIRD.nvim](https://github.com/bird-chinese-community/BIRD.nvim) sets the `bird2` filetype and provides syntax highlighting. Install it with lazy.nvim:
+
+```lua
+{
+  "bird-chinese-community/BIRD.nvim",
+  version = "^1.0.14",
+  lazy = false,
+  config = function()
+    require("bird2").setup()
+  end,
+}
+```
+
+Keep `lazy = false`: the plugin must load before filetype detection runs. To use a native package instead, clone the repository into a `start` directory:
+
+```sh
+git clone https://github.com/bird-chinese-community/BIRD.nvim \
+  ~/.local/share/nvim/site/pack/plugins/start/BIRD.nvim
+```
+
+BIRD.nvim sets the `bird2` filetype for:
+
+- Files with the extensions `.bird`, `.bird2` and `.bird3`, and files that match `*.bird*.conf`.
+- Files named `bird.conf`, `bird2.conf`, `bird3.conf`, `bird6.conf` or `bird-*`.
+- Files below a `bird/`, `bird2/` or `bird3/` directory.
+- `.conf` files whose first 200 lines contain BIRD configuration. To turn off this content check, call `require("bird2").setup({ heuristic_detect = false })`.
+
+`:help bird2` opens the plugin documentation, and `:checkhealth bird2` checks the installation.
+
+## Start the language server [#language-server]
+
+Neovim 0.11 or newer configures language servers with `vim.lsp.config`. Add this to `init.lua`:
+
+```lua title="init.lua"
+vim.lsp.config("birdcc", {
+  cmd = { "birdcc", "lsp", "--stdio" },
+  filetypes = { "bird2" },
+  root_markers = { "bird.config.json", "birdcc.config.json", ".git" },
+})
+vim.lsp.enable("birdcc")
+```
+
+nvim-lspconfig has no `birdcc` configuration, so you need this definition with or without nvim-lspconfig.
+
+Neovim answers the `workspace/configuration` requests of the server from `settings`. [Language server settings](./language-server.mdx#settings) lists the keys under `bird2-lsp`. For example, to turn off ASN hover:
+
+```lua title="init.lua"
+vim.lsp.config("birdcc", {
+  settings = {
+    ["bird2-lsp"] = {
+      intel = { hover = false },
+    },
+  },
+})
+```
+
+Without BIRD.nvim, register the filetype before you enable the server:
+
+```lua title="init.lua"
+vim.filetype.add({
+  extension = { bird = "bird2", bird2 = "bird2", bird3 = "bird2" },
+  filename = { ["bird.conf"] = "bird2" },
+})
+```

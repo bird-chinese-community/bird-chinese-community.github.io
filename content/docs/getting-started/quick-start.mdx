@@ -1,0 +1,98 @@
+---
+title: Quick start
+description: Check a configuration file with birdcc lint and create bird.config.json with birdcc init.
+---
+
+These steps need the `birdcc` command. [Installation](./installation.mdx#cli) describes how to install it.
+
+## Steps [#steps]
+
+<Steps>
+
+<Step>
+
+### Check a configuration file
+
+This configuration refers to a filter that it does not define:
+
+```bird2 title="bird.conf"
+router id 192.0.2.1;
+
+protocol device {
+}
+
+protocol bgp upstream {
+  local as 65001;
+  neighbor 192.0.2.2 as 65002;
+  ipv4 {
+    import filter peer_in;
+    export none;
+  };
+}
+```
+
+Run the linter in the directory of the file:
+
+```sh
+birdcc lint bird.conf
+```
+
+```text
+WARNING sym/filter-required [file:///srv/bird/bird.conf] 10:19 Protocol 'upstream' references unknown filter 'peer_in'
+```
+
+Each line shows the severity, the rule code, the file URI, the line and column, and the message.
+
+By default, the `sym`, `cfg`, `net` and `type` rules report warnings and the `bgp` and `ospf` rules report information, so this run exits with status 0. `birdcc lint` exits with status 1 when a diagnostic has severity `error` or when the command fails. [Linting](../linting/usage.mdx) shows how to raise rule severities so that lint fails a CI job.
+
+`birdcc lint` follows the `include` statements of the file. Add `--bird` to also run `bird -p` on the file.
+
+</Step>
+
+<Step>
+
+### Create bird.config.json
+
+To see the candidates and the file content without writing the file, run `birdcc init --dry-run` first. Then write the file:
+
+```sh
+birdcc init --write
+```
+
+```text
+Created bird.config.json
+  Entry: bird.conf (single, confidence: 100%)
+```
+
+```json title="bird.config.json"
+{
+  "$schema": "https://raw.githubusercontent.com/bird-chinese-community/BIRD-LSP/main/schemas/bird.config.schema.json",
+  "main": "./bird.conf",
+  "formatter": {
+    "indentSize": 2
+  }
+}
+```
+
+`birdcc init` scans the `.conf` files below the current directory and writes the detected entry file as `main`. When it finds several independent entry files, it writes `workspaces` instead. It adds `formatter.indentSize` when the entry files use an indentation of 2, 4 or 8 spaces.
+
+Without a file argument, `birdcc lint` lints the `main` entry and its include graph, and `birdcc fmt` checks the formatting of the `main` file:
+
+```sh
+birdcc lint
+birdcc fmt
+```
+
+The language server reads the same file. [Project configuration](../configuration/entries-and-includes.mdx) describes the keys, entry detection and include resolution.
+
+</Step>
+
+</Steps>
+
+## Next steps
+
+- [VS Code](../editors/vscode.mdx): settings, commands, snippets and fallback validation of BIRD2 LSP.
+- [Linting](../linting/usage.mdx): rules, severities and `bird -p` checks.
+- [Formatting](../formatting/usage.mdx): `birdcc fmt`, engines and safe mode.
+- [CI](../ci/github-actions.mdx): lint and format checks in GitHub Actions with setup-birdcc.
+- [CLI reference](../cli.mdx): every option of `birdcc`.

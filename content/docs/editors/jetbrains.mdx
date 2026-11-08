@@ -1,0 +1,24 @@
+---
+title: JetBrains IDEs
+description: Load the BIRD TextMate grammar in JetBrains IDEs and connect an LSP client plugin to the birdcc language server.
+---
+
+JetBrains IDEs get syntax highlighting from the BIRD TextMate grammar, and language features from the birdcc language server through an LSP client plugin.
+
+## TextMate grammar [#textmate-grammar]
+
+[BIRD-tm-language-grammar](https://github.com/bird-chinese-community/BIRD-tm-language-grammar) contains the TextMate grammar `grammars/bird2.tmLanguage.json` with the scope `source.bird2`. Each release tagged `tm-v<version>` on the [releases page](https://github.com/bird-chinese-community/BIRD-tm-language-grammar/releases) includes the file. Editors and highlighters that load TextMate grammars in JSON format can use it.
+
+## Load the grammar [#textmate-bundles]
+
+JetBrains IDEs load the grammar through TextMate Bundles. The bundle is the VS Code extension BIRD2 Configuration:
+
+1. Download the latest `.vsix` file of [BIRDCC/vscode-bird2-conf](https://open-vsx.org/extension/BIRDCC/vscode-bird2-conf) from Open VSX.
+2. Extract the `.vsix` file with a ZIP tool. Note the directory that contains `package.json`.
+3. In the IDE, open **Settings** > **Editor** > **TextMate Bundles**.
+4. Select **+** (Add) and select the directory from step 2.
+5. Make sure that `bird2` is in the list and selected, then restart the IDE.
+
+## Connect the language server [#language-server]
+
+Install an LSP client plugin that supports user-defined language servers, such as LSP4IJ, and configure it with the values in [Other LSP clients](./helix.mdx#other-lsp-clients). [Installation](../getting-started/installation.mdx#cli) describes how to install `birdcc`.

@@ -4,7 +4,7 @@ description: BIRD-LSP 各个包如何解析、分析、检查和格式化 BIRD �
 icon: Layers
 ---
 
-本页说明 BIRD-LSP 1.0.0 的内部结构。[包的依赖关系](./reference/packages.mdx#dependencies)列出了各个包之间的引用关系。文中的函数名和文件名指 BIRD-LSP 仓库 [`packages/@birdcc/`](https://github.com/bird-chinese-community/BIRD-LSP/tree/main/packages/@birdcc) 下的源码，工作流 (workflow) 文件名指 [`.github/workflows/`](https://github.com/bird-chinese-community/BIRD-LSP/tree/main/.github/workflows) 下的文件。
+本页说明 BIRD-LSP 1.0.0 的内部结构。[包的依赖关系](./packages.mdx#dependencies)列出了各个包之间的引用关系。文中的函数名和文件名指 BIRD-LSP 仓库 [`packages/@birdcc/`](https://github.com/bird-chinese-community/BIRD-LSP/tree/main/packages/@birdcc) 下的源码，工作流 (workflow) 文件名指 [`.github/workflows/`](https://github.com/bird-chinese-community/BIRD-LSP/tree/main/.github/workflows) 下的文件。
 
 ## 解析器 (Parser) [#parser]
 
@@ -79,7 +79,7 @@ flowchart TD
 - 嵌套 16 层
 - 256 个文件
 
-`bird.config.json` 的 [`crossFile` 键](./reference/configuration.mdx#cross-file)可以修改这些上限。
+`bird.config.json` 的 [`crossFile` 键](./configuration/reference.mdx#cross-file)可以修改这些上限。
 
 已解析的文档来自进程级缓存，缓存最多保存 512 个文档、16 MiB。
 
@@ -110,12 +110,12 @@ flowchart TD
 
 - 把解析器和 core 的诊断映射为带默认级别 (severity) 的规则代码 (rule code)。
 - 运行六组规则函数。
-- 丢弃片段文件或库文件单独无法解析的诊断（见[文件角色](./reference/rules.mdx#file-roles)）。
+- 丢弃片段文件或库文件单独无法解析的诊断（见[文件角色](./linting/rules.mdx#file-roles)）。
 - 去除重复项。
 
 `sym`、`cfg`、`net` 和 `type` 规则的默认级别是 `warning`，`bgp` 和 `ospf` 规则是 `info`。
 
-之后，语言服务器 (language server) 用 `@birdcc/core` 的 `applyLintConfiguration` 应用 `bird.config.json` 中的 `linter.rules`，CLI 用它自己的 `applySeverityOverrides` 应用。两者都用 `@birdcc/core` 的 `resolveSeverityOverride` 确定每个代码的级别（见[修改级别](./reference/rules.mdx#severity)）：
+之后，语言服务器 (language server) 用 `@birdcc/core` 的 `applyLintConfiguration` 应用 `bird.config.json` 中的 `linter.rules`，CLI 用它自己的 `applySeverityOverrides` 应用。两者都用 `@birdcc/core` 的 `resolveSeverityOverride` 确定每个代码的级别（见[修改级别](./linting/rules.mdx#severity)）：
 
 - 完全相同的规则代码优先。
 - 其次是匹配的最长 `prefix/*` 键。
@@ -160,7 +160,7 @@ flowchart TD
 - 合并连续空行
 - 不折行
 
-[格式化](./formatting.mdx#engines)从使用者的角度介绍这两个引擎。
+[格式化](./formatting/usage.mdx#engines)从使用者的角度介绍这两个引擎。
 
 箭头表示调用顺序和数据流向。
 
@@ -223,7 +223,7 @@ flowchart TD
 两个使用方加载这个模块：
 
 - `@birdcc/formatter` 的默认引擎 `dprint` 把 `getBuffer()` 传给 `@dprint/formatter` 上下文的 `addPlugin()`。
-- dprint CLI 通过文件路径或 `npm:` 说明符 (specifier) 加载同一个文件（见[使用 dprint 插件](./formatting.mdx#dprint)）。
+- dprint CLI 通过文件路径或 `npm:` 说明符 (specifier) 加载同一个文件（见[使用 dprint 插件](./formatting/dprint.mdx)）。
 
 箭头沿构建和数据流向，从源文件指向使用方。
 
@@ -267,7 +267,7 @@ flowchart LR
 
 服务器在分析过程中发布图中其他文件的诊断，调度器发布文档本身的诊断。`crossFile.enabled` 为 `false` 时，`lintBirdConfig` 单独检查这个文档。
 
-LSP 用法参考中的[诊断](./reference/language-server.mdx#diagnostics)一节说明发布的结果。
+LSP 用法参考中的[诊断](./editors/language-server.mdx#diagnostics)一节说明发布的结果。
 
 箭头按时间顺序表示消息和调用。
 
@@ -318,7 +318,7 @@ sequenceDiagram
 - 存在配置文件时，从 `workspaces` 或 `main` 取得入口。
 - 不存在配置文件时，在文档所在的工作区文件夹 (workspace folder) 中运行入口探测。
 
-两者都把 `includePaths` 按配置文件所在目录解析后追加到 include 搜索路径 (include search path)。[入口探测](./project-configuration.mdx#entry-detection)和 [include 解析](./project-configuration.mdx#include-resolution)说明具体规则。
+两者都把 `includePaths` 按配置文件所在目录解析后追加到 include 搜索路径 (include search path)。[入口探测](./configuration/entries-and-includes.mdx#entry-detection)和 [include 解析](./configuration/entries-and-includes.mdx#include-resolution)说明具体规则。
 
 箭头表示控制流。
 
@@ -356,7 +356,7 @@ flowchart TD
 
 使用 `--bird` 或 `linter.withBird` 时，`runBirdValidation` 不经 shell 运行第一个可用的校验命令模板，并把它的 stderr 转换为诊断。
 
-`linter.rules` 的级别覆盖最后生效。任一诊断的级别为 `error` 时，命令以退出码 1 结束。[用 bird -p 检查](./linting.mdx#bird)一节介绍相关选项。
+`linter.rules` 的级别覆盖最后生效。任一诊断的级别为 `error` 时，命令以退出码 1 结束。[用 bird -p 检查](./linting/usage.mdx#bird)一节介绍相关选项。
 
 箭头表示控制流。
 
@@ -390,7 +390,7 @@ flowchart TD
 
 `startLspServer()` 在启动时调用 `createAsnIntel()`，后者校验文件并建立查找表。除非 `bird2-lsp.intel.enabled` 或对应功能的设置 (`intel.completion`、`intel.hover`、`intel.inlayHints`) 为 `false`，补全 (completion)、悬停提示 (hover) 和内嵌提示 (inlay hint) 的处理函数都会查询这些查找表。
 
-[ASN 数据](./asn-data.mdx)介绍数据库和相关设置。
+[ASN 数据](./editors/asn-data.mdx)介绍数据库和相关设置。
 
 箭头沿数据流向，从上游 CSV 指向语言服务器功能。
 

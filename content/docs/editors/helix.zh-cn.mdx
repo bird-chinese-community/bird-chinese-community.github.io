@@ -1,0 +1,61 @@
+---
+title: Helix 与其他 LSP 客户端
+description: 把 Helix 和其他 LSP 客户端连接到 birdcc 语言服务器。
+---
+
+Helix 和其他 LSP 客户端用 `birdcc lsp --stdio` 启动语言服务器 (language server)。[安装](../getting-started/installation.mdx#cli)说明如何安装 `birdcc`。
+
+## 配置 Helix [#helix]
+
+在 `languages.toml` 中添加一种语言和一个语言服务器。文件位置为 `~/.config/helix/languages.toml`，或项目中的 `.helix/languages.toml`：
+
+```toml title="languages.toml"
+[[language]]
+name = "bird2"
+scope = "source.bird2"
+file-types = [
+  "bird",
+  "bird2",
+  "bird3",
+  { glob = "bird.conf" },
+  { glob = "bird2.conf" },
+  { glob = "bird3.conf" },
+  { glob = "bird6.conf" },
+]
+roots = ["bird.config.json", "birdcc.config.json"]
+comment-tokens = "#"
+language-servers = ["birdcc"]
+
+[language-server.birdcc]
+command = "birdcc"
+args = ["lsp", "--stdio"]
+```
+
+Helix 把语言服务器的 `config` 表作为 `initializationOptions` 发送，服务器从这个对象的 `birdcc` 键读取设置。把设置写在 `[language-server.birdcc.config.birdcc]` 下：
+
+```toml title="languages.toml"
+[language-server.birdcc.config.birdcc.intel]
+hover = false
+```
+
+Helix 没有 BIRD 的语法，所以这份配置只提供语言功能，没有语法高亮。
+
+## 其他 LSP 客户端 [#other-lsp-clients]
+
+用以下值配置客户端：
+
+| 项目       | 值                                                                                                                                   |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| 命令       | `birdcc lsp --stdio`；把 `@birdcc/lsp` 作为依赖安装时，也可以用 `node <path>/node_modules/@birdcc/lsp/dist/server.js --stdio`。      |
+| 通信方式   | 通过 stdin 和 stdout 传输 JSON-RPC。                                                                                                 |
+| 文件       | BIRD 配置文件。服务器根据文件名和内容决定分析哪些文件，不使用客户端发送的语言 ID。                                                   |
+| 根目录标记 | `bird.config.json`、`birdcc.config.json`。                                                                                           |
+| 设置       | `initializationOptions.birdcc`，或 `workspace/configuration` 的 `bird2-lsp` 节。见[语言服务器设置](./language-server.mdx#settings)。 |
+
+服务器分析的文件与 VS Code 扩展相同：
+
+- `main` 指向的文件
+- 名为 `bird.conf`、`bird2.conf`、`bird3.conf` 或 `bird6.conf` 的文件
+- 含有 BIRD 声明的文件
+
+具体条件见[文件关联](./vscode.mdx#file-association)。

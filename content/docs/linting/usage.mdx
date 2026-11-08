@@ -1,0 +1,210 @@
+---
+title: Lint configurations
+description: Check BIRD 2 and BIRD 3 configuration files with birdcc lint, read its diagnostics, and make CI jobs fail on them.
+---
+
+`birdcc lint` checks a BIRD configuration against the 32 rules of `@birdcc/linter`. It follows `include` statements across files and can add the errors that `bird -p` reports.
+
+The command comes from the `@birdcc/cli` package and requires Node.js 22 or newer.
+
+```sh
+npm install --global @birdcc/cli
+```
+
+To run the command without a global installation, use `npx @birdcc/cli lint bird.conf`.
+
+## Lint a file or a project [#targets]
+
+Pass a file to lint it:
+
+```sh
+birdcc lint bird.conf
+```
+
+birdcc reads its settings from the nearest `bird.config.json` in the directory of the file or in a parent directory.
+
+Without a file argument, birdcc searches for `bird.config.json` from the current directory upward:
+
+- birdcc lints the file that the `main` key names, or `bird.conf` when `main` is not set.
+- When the configuration sets `workspaces`, birdcc lints the `bird.conf` of every matched directory.
+- Without a configuration file, the command fails with exit status 1.
+
+```sh
+birdcc init --write
+birdcc lint
+```
+
+`birdcc init --write` detects the entry file and writes `bird.config.json`. [Project configuration](../configuration/entries-and-includes.mdx) describes the file, and the [`init` reference](../cli.mdx#init) lists the detection options.
+
+## Cross-file analysis [#cross-file]
+
+Cross-file analysis is on by default. birdcc analyzes the include graph of an entry file: the entry file and every file that it includes directly or through other files.
+
+- A file that contains an `include` statement is the entry file.
+- For any other file, birdcc detects the entry file in the directory of the file and in up to four parent directories. When detection finds no entry file, the file itself is the entry file.
+- The output contains the diagnostics of every file in the include graph.
+
+Example project:
+
+<Files>
+  <Folder name="project" defaultOpen>
+    <File name="bird.config.json" />
+    <File name="bird.conf" />
+    <File name="filters.conf" />
+    <Folder name="old" defaultOpen>
+      <File name="legacy.conf" />
+    </Folder>
+  </Folder>
+</Files>
+
+```bird2 title="bird.conf"
+router id 192.0.2.1;
+include "filters.conf";
+
+protocol device {
+}
+
+protocol bgp upstream {
+  local as 65000;
+  neighbor 192.0.2.2 as 65001;
+  ipv4 {
+    import filter peer_in;
+    export filter peer_out;
+  };
+}
+```
+
+`filters.conf` defines `peer_in`. No file defines `peer_out`. A run on `filters.conf` analyzes the include graph of `bird.conf` and reports the problem in `bird.conf`:
+
+```sh
+birdcc lint filters.conf
+```
+
+```text
+WARNING sym/filter-required [file:///srv/bird/project/bird.conf] 12:19 Protocol 'upstream' references unknown filter 'peer_out'
+```
+
+`old/legacy.conf` is not in the include graph of `bird.conf`. A run on `old/legacy.conf` also analyzes the include graph of `bird.conf`, so the output contains no diagnostics for `old/legacy.conf`. Use `--no-cross-file` to lint the file on its own:
+
+```sh
+birdcc lint old/legacy.conf --no-cross-file
+```
+
+```text
+WARNING sym/duplicate [file:///srv/bird/project/old/legacy.conf] 2:8 [semantic/duplicate-definition] define 'LEGACY_ASN' is already defined
+```
+
+`"crossFile": { "enabled": false }` in `bird.config.json` turns cross-file analysis off for every run.
+
+The include graph has these limits:
+
+- 16 levels of nesting
+- 256 files
+- 2 MiB for each file
+- 16 MiB in total
+
+`--include-max-depth` and `--include-max-files` change the first two limits for one run. The [`crossFile` keys](../configuration/reference.mdx#cross-file) change all four.
+
+birdcc skips an include that exceeds a limit and reports it as `sym/undefined`. A target file that is larger than the size limit makes the command fail.
+
+birdcc also skips includes that resolve outside the workspace root and reports them as `sym/undefined`, unless `crossFile.externalIncludes` is `true`. [Include resolution](../configuration/entries-and-includes.mdx#include-resolution) describes the search order and the workspace root.
+
+## Read the output [#output]
+
+Each diagnostic is one line with these parts:
+
+1. The severity
+2. The rule code
+3. The file URI
+4. The line and column, both starting at 1
+5. The message
+
+```text
+WARNING sym/filter-required [file:///srv/bird/project/bird.conf] 12:19 Protocol 'upstream' references unknown filter 'peer_out'
+```
+
+- Without diagnostics, the command prints `No problems found during linting`.
+- The parser and `@birdcc/core` report some problems under their own codes. birdcc shows these diagnostics under a rule code and puts the original code in brackets at the start of the message, for example `[semantic/duplicate-definition]`. Use the rule code in `linter.rules`.
+- Diagnostics from `bird -p` have no file URI.
+- `-v` prints progress and timing to stderr. Each of these lines starts with `[verbose]`.
+
+[Lint rules](./rules.mdx) lists every rule code and the problems that it reports.
+
+## Severities and exit status [#exit-status]
+
+The `sym`, `cfg`, `net` and `type` rules report `warning` by default. The `bgp` and `ospf` rules report `info`.
+
+| Result                                                                                                               | Exit status |
+| -------------------------------------------------------------------------------------------------------------------- | ----------- |
+| At least one diagnostic has the severity `error`                                                                     | 1           |
+| All diagnostics are `warning` or `info`, or there are no diagnostics                                                 | 0           |
+| The command fails: no target file, unreadable file, invalid `bird.config.json`, invalid option value, file too large | 1           |
+
+With the default severities, `birdcc lint` exits with status 0 also for syntax errors, because `cfg/syntax-error` reports `warning`. The [exit codes](../cli.mdx#exit-codes) of all commands are in the CLI reference.
+
+## Fail CI on findings [#fail-on-findings]
+
+To make a CI job fail on lint findings, raise the rule groups to `error` in `bird.config.json`:
+
+```json title="bird.config.json"
+{
+  "$schema": "https://raw.githubusercontent.com/bird-chinese-community/BIRD-LSP/main/schemas/bird.config.schema.json",
+  "main": "bird.conf",
+  "linter": {
+    "rules": {
+      "sym/*": "error",
+      "cfg/*": "error",
+      "net/*": "error",
+      "type/*": "error"
+    }
+  }
+}
+```
+
+With this configuration, the example project prints the following line, and `birdcc lint` exits with status 1:
+
+```text
+ERROR sym/filter-required [file:///srv/bird/project/bird.conf] 12:19 Protocol 'upstream' references unknown filter 'peer_out'
+```
+
+Add `"bgp/*": "error"` and `"ospf/*": "error"` to also fail on BGP and OSPF findings. [Change severities](./rules.mdx#severity) explains how birdcc matches the keys.
+
+[CI](../ci/github-actions.mdx) shows complete GitHub Actions workflows.
+
+## Check with bird -p [#bird]
+
+```sh
+birdcc lint bird.conf --bird
+```
+
+`--bird` runs a validation command after the static analysis and adds its errors to the output. `"linter": { "withBird": true }` in `bird.config.json` turns validation on for every run.
+
+birdcc uses the first command template from this list:
+
+1. The `--validate-command` option.
+2. `bird.validateCommand` in `bird.config.json`.
+3. `bird.binaryPath` in `bird.config.json`, as `<binaryPath> -p -c {file}`.
+4. The `BIRD_BIN` environment variable, as `"<BIRD_BIN>" -p -c {file}`.
+5. `bird -p -c {file}`.
+
+```sh
+BIRD_BIN=/usr/sbin/bird birdcc lint bird.conf --bird
+birdcc lint bird.conf --bird --validate-command "/usr/sbin/bird -p -c {file}"
+```
+
+- birdcc replaces `{file}` with the absolute path of the linted file. When the template has no `{file}`, birdcc adds the path at the end.
+- birdcc runs the command without a shell, in the directory of the linted file, with a timeout of 10 seconds. With `workspaces`, it runs the command once for each linted file.
+- A template that runs BIRD in a container or on another host must find the file at the same absolute path.
+- Each line that the command writes to stderr becomes a `bird/parse-error` diagnostic. A command that cannot start, times out, or exits with a non-zero status without output on stderr gives `bird/runner-error`. Both codes have the severity `error`, so they make the command exit with status 1.
+
+The [BIRD validation](../cli.mdx#bird-validation) section of the CLI reference lists the accepted stderr formats.
+
+## JSON output [#json]
+
+```sh
+birdcc lint --format json > birdcc-lint.json
+```
+
+`--json` is the same as `--format json`. The exit status is the same as for the text output.
+
+The report contains the `diagnostics` array and the counts `files`, `rules`, `errors` and `warnings`. [JSON output](../cli.mdx#json-output) lists every field.

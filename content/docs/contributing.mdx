@@ -165,7 +165,7 @@ pnpm run format     # oxfmt
 
 - Each page is two files in `content/docs/`: `<name>.mdx` in English and `<name>.zh-cn.mdx` in Simplified Chinese. Both files have the same sections in the same order.
 - `meta.json` files set the page order and the section titles of the sidebar.
-- A link to another page uses the source file, for example `[CLI](./reference/cli.mdx)`. The build rewrites it to the page URL in the language of the linking page and fails on a link to a missing file.
+- A link to another page uses the source file, for example `[CLI](./cli.mdx)`. The build rewrites it to the page URL in the language of the linking page and fails on a link to a missing file.
 - `design.md` contains the presentation rules of the site.
 - The build reads the Git history of each page for the contributor list, so it runs in a clone with at least one commit.
 - `.github/workflows/pages.yml` checks the format, runs oxlint and builds the site for every push and pull request. A push to `main` deploys the build to GitHub Pages.

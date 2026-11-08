@@ -23,7 +23,7 @@ BIRD2 LSP 的错误通知带有 **Open FAQ** 操作，它会打开 BIRD-LSP 仓�
 }
 ```
 
-把路径换成实际的 BIRD 1.x 程序路径。语言服务器 (language server) 也读取 `linter.enabled`，因此不会为这个项目发布 lint 诊断 (diagnostic)。[用 bird -p 检查](./linting.mdx#bird)一节介绍校验命令。
+把路径换成实际的 BIRD 1.x 程序路径。语言服务器 (language server) 也读取 `linter.enabled`，因此不会为这个项目发布 lint 诊断 (diagnostic)。[用 bird -p 检查](./linting/usage.mdx#bird)一节介绍校验命令。
 
 </Accordion>
 
@@ -38,7 +38,7 @@ BIRD2 LSP 的错误通知带有 **Open FAQ** 操作，它会打开 BIRD-LSP 仓�
 - Vim：BIRD.vim
 - JetBrains IDE：TextMate 语法 (TextMate grammar)
 
-[其他编辑器](./editors/other-editors.mdx)给出各编辑器的配置方法。
+[其他编辑器](./getting-started/installation.mdx#other-editors)给出各编辑器的配置方法。
 
 </Accordion>
 
@@ -46,7 +46,7 @@ BIRD2 LSP 的错误通知带有 **Open FAQ** 操作，它会打开 BIRD-LSP 仓�
 
 不会。`@birdcc/intel` 包含一个根据 BGP.Tools OpenDB 生成的 ASN 数据库 (ASN database) 文件，语言服务器读取这个文件。
 
-BIRD-LSP 仓库中的一个工作流 (workflow) 每周更新该文件，新数据随 `@birdcc/intel` 的新版本发布。[ASN 数据](./asn-data.mdx)介绍数据库以及关闭 ASN 功能的设置。
+BIRD-LSP 仓库中的一个工作流 (workflow) 每周更新该文件，新数据随 `@birdcc/intel` 的新版本发布。[ASN 数据](./editors/asn-data.mdx)介绍数据库以及关闭 ASN 功能的设置。
 
 </Accordion>
 
@@ -102,7 +102,7 @@ BIRD2: skipped formatting for large file (3.1 MiB > 2.0 MiB). Adjust bird2-lsp.p
 
 1. 在 VS Code 设置中调大 `bird2-lsp.performance.maxFileSizeBytes`。
 2. 把配置分成多个文件，用 `include` 语句组合。
-3. 在终端或 CI 中运行 `birdcc lint` 和 `birdcc fmt`。默认情况下，`birdcc lint` 对每个文件的上限是 2 MiB。文件更大时，调大 `bird.config.json` 中的 `crossFile.maxDocumentBytes`（见 [`crossFile` 键](./reference/configuration.mdx#cross-file)）。
+3. 在终端或 CI 中运行 `birdcc lint` 和 `birdcc fmt`。默认情况下，`birdcc lint` 对每个文件的上限是 2 MiB。文件更大时，调大 `bird.config.json` 中的 `crossFile.maxDocumentBytes`（见 [`crossFile` 键](./configuration/reference.mdx#cross-file)）。
 
 </Accordion>
 
@@ -163,7 +163,7 @@ BIRD2: skipped formatting for large file (3.1 MiB > 2.0 MiB). Adjust bird2-lsp.p
 }
 ```
 
-[让 CI 在出现问题时失败](./linting.mdx#fail-on-findings)一节给出完整示例。
+[让 CI 在出现问题时失败](./linting/usage.mdx#fail-on-findings)一节给出完整示例。
 
 </Accordion>
 
@@ -175,7 +175,7 @@ BIRD2: skipped formatting for large file (3.1 MiB > 2.0 MiB). Adjust bird2-lsp.p
 birdcc lint old/legacy.conf --no-cross-file
 ```
 
-[跨文件分析](./linting.mdx#cross-file)一节说明 birdcc 如何选择入口文件。
+[跨文件分析](./linting/usage.mdx#cross-file)一节说明 birdcc 如何选择入口文件。
 
 </Accordion>
 
@@ -191,7 +191,7 @@ birdcc 在 `PATH` 中找不到 `bird` 程序。安装 BIRD 2 或 BIRD 3，或者
 BIRD_BIN=/usr/sbin/bird birdcc lint bird.conf --bird
 ```
 
-在 GitHub Actions 中，[setup-birdcc](./ci.mdx) 会安装 BIRD，并在输出 `bird-bin` 中返回程序路径。
+在 GitHub Actions 中，[setup-birdcc](./ci/github-actions.mdx) 会安装 BIRD，并在输出 `bird-bin` 中返回程序路径。
 
 </Accordion>
 
@@ -211,7 +211,7 @@ npm ls --global @birdcc/cli
 - 编辑器运行 `birdcc lsp --stdio`，所以 `birdcc` 必须在编辑器进程的 `PATH` 中，否则请使用命令的绝对路径。
 - 不带 `--stdio` 的 `birdcc lsp` 输出 ``Only `birdcc lsp --stdio` is currently supported`` 并以退出码 1 结束。
 
-[安装语言服务器](./editors/other-editors.mdx#install-the-language-server)一节给出安装命令。
+[安装语言服务器](./getting-started/installation.mdx#cli)一节给出安装命令。
 
 </Accordion>
 

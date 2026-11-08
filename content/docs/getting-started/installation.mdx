@@ -1,0 +1,66 @@
+---
+title: Installation
+description: Install BIRD2 LSP for VS Code and the birdcc CLI, and find the setup page of other editors.
+---
+
+## Requirements
+
+| Tool                                                         | Requirement                                                                                   |
+| ------------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
+| `birdcc` from `@birdcc/cli`                                  | Node.js 22 or newer.                                                                          |
+| BIRD2 LSP for VS Code                                        | VS Code 1.100 or newer. The extension contains the language server and does not need Node.js. |
+| `bird -p` checks (`birdcc lint --bird`, fallback validation) | BIRD 2 or BIRD 3 on the same machine. Lint rules and editor features do not need BIRD.        |
+
+## Install the VS Code extension [#vscode]
+
+BIRD2 Extension Pack (`BIRDCC.bird2-extension-pack`) installs two extensions: BIRD2 LSP (`BIRDCC.bird2-lsp`), which contains the language server, and BIRD2 Configuration (`BIRDCC.vscode-bird2-conf`), which provides syntax highlighting.
+
+<Tabs items={["VS Code Marketplace", "Open VSX", "Command line"]}>
+
+<Tab value="VS Code Marketplace">
+
+In VS Code, open the Extensions view, search for `BIRD2 Extension Pack` and select **Install**. The Marketplace page is [BIRDCC.bird2-extension-pack](https://marketplace.visualstudio.com/items?itemName=BIRDCC.bird2-extension-pack).
+
+</Tab>
+
+<Tab value="Open VSX">
+
+VSCodium and other editors that install extensions from Open VSX use the same extension pack: [BIRDCC/bird2-extension-pack](https://open-vsx.org/extension/BIRDCC/bird2-extension-pack). Search for `BIRD2 Extension Pack` in the Extensions view of the editor.
+
+</Tab>
+
+<Tab value="Command line">
+
+```sh
+code --install-extension BIRDCC.bird2-extension-pack
+```
+
+</Tab>
+
+</Tabs>
+
+VS Code enables the extension only in a trusted workspace. For Neovim, Vim, Helix and other editors, see [Other editors](#other-editors).
+
+## Install the CLI [#cli]
+
+```sh
+npm install --global @birdcc/cli
+```
+
+Run `birdcc --help` to check the installation. It lists the commands `lint`, `fmt`, `lsp` and `init`. To pin the version in a project, run `npm install --save-dev @birdcc/cli` and call the command as `npx birdcc`.
+
+Editors other than VS Code start the language server with `birdcc lsp --stdio`, so `birdcc` must be in the `PATH` of the editor process. Otherwise, use the absolute path of the command.
+
+[Language server reference](../editors/language-server.mdx) lists the capabilities and settings of the server.
+
+## Other editors [#other-editors]
+
+Editors other than VS Code get language features from the language server. Syntax highlighting and filetype detection come from separate plugins.
+
+| Editor                                                      | Highlighting and filetype                 | Language server                                               |
+| ----------------------------------------------------------- | ----------------------------------------- | ------------------------------------------------------------- |
+| [Neovim](../editors/neovim.mdx)                             | BIRD.nvim, Neovim 0.9 or newer            | `vim.lsp.config`, Neovim 0.11 or newer                        |
+| [Vim](../editors/vim.mdx)                                   | BIRD.vim, Vim 8.0 or newer                | An LSP plugin such as vim-lsp                                 |
+| [Helix](../editors/helix.mdx)                               | None                                      | `languages.toml`                                              |
+| [JetBrains IDEs](../editors/jetbrains.mdx)                  | TextMate grammar through TextMate Bundles | An LSP client plugin for user-defined servers, such as LSP4IJ |
+| [Other LSP clients](../editors/helix.mdx#other-lsp-clients) | Depends on the editor                     | `birdcc lsp --stdio`                                          |

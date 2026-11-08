@@ -23,7 +23,7 @@ To check a BIRD 1.x configuration with BIRD itself, point the validation command
 }
 ```
 
-Replace the path with the path of your BIRD 1.x binary. The language server also reads `linter.enabled`, so it publishes no lint diagnostics for this project. [Check with bird -p](./linting.mdx#bird) describes the validation command.
+Replace the path with the path of your BIRD 1.x binary. The language server also reads `linter.enabled`, so it publishes no lint diagnostics for this project. [Check with bird -p](./linting/usage.mdx#bird) describes the validation command.
 
 </Accordion>
 
@@ -38,7 +38,7 @@ Syntax highlighting for the other editors comes from these projects:
 - Vim: BIRD.vim
 - JetBrains IDEs: the TextMate grammar
 
-[Other editors](./editors/other-editors.mdx) has the setup for each editor.
+[Other editors](./getting-started/installation.mdx#other-editors) has the setup for each editor.
 
 </Accordion>
 
@@ -46,7 +46,7 @@ Syntax highlighting for the other editors comes from these projects:
 
 No. `@birdcc/intel` contains an ASN database file built from BGP.Tools OpenDB, and the language server reads this file.
 
-A weekly workflow in the BIRD-LSP repository refreshes the file, and new data arrives with a new release of `@birdcc/intel`. [ASN data](./asn-data.mdx) describes the database and the settings that turn the ASN features off.
+A weekly workflow in the BIRD-LSP repository refreshes the file, and new data arrives with a new release of `@birdcc/intel`. [ASN data](./editors/asn-data.mdx) describes the database and the settings that turn the ASN features off.
 
 </Accordion>
 
@@ -102,7 +102,7 @@ The extension skips formatting, type hints, keyword hover and fallback validatio
 
 1. Increase `bird2-lsp.performance.maxFileSizeBytes` in the VS Code settings.
 2. Split the configuration into files that `include` statements join.
-3. Run `birdcc lint` and `birdcc fmt` in a terminal or in CI. `birdcc lint` stops at 2 MiB for each file by default. For larger files, raise `crossFile.maxDocumentBytes` in `bird.config.json` ([`crossFile` keys](./reference/configuration.mdx#cross-file)).
+3. Run `birdcc lint` and `birdcc fmt` in a terminal or in CI. `birdcc lint` stops at 2 MiB for each file by default. For larger files, raise `crossFile.maxDocumentBytes` in `bird.config.json` ([`crossFile` keys](./configuration/reference.mdx#cross-file)).
 
 </Accordion>
 
@@ -163,7 +163,7 @@ A command such as **BIRD2: Restart Language Server**, **BIRD2: Format Active Doc
 }
 ```
 
-[Fail CI on findings](./linting.mdx#fail-on-findings) has the complete example.
+[Fail CI on findings](./linting/usage.mdx#fail-on-findings) has the complete example.
 
 </Accordion>
 
@@ -175,7 +175,7 @@ With cross-file analysis on (the default), `birdcc lint` analyzes the include gr
 birdcc lint old/legacy.conf --no-cross-file
 ```
 
-[Cross-file analysis](./linting.mdx#cross-file) describes how birdcc selects the entry file.
+[Cross-file analysis](./linting/usage.mdx#cross-file) describes how birdcc selects the entry file.
 
 </Accordion>
 
@@ -191,7 +191,7 @@ birdcc did not find the `bird` binary in `PATH`. Install BIRD 2 or BIRD 3, or na
 BIRD_BIN=/usr/sbin/bird birdcc lint bird.conf --bird
 ```
 
-In GitHub Actions, [setup-birdcc](./ci.mdx) installs BIRD and returns the path of the binary in its `bird-bin` output.
+In GitHub Actions, [setup-birdcc](./ci/github-actions.mdx) installs BIRD and returns the path of the binary in its `bird-bin` output.
 
 </Accordion>
 
@@ -211,7 +211,7 @@ npm ls --global @birdcc/cli
 - The editor starts `birdcc lsp --stdio`, so `birdcc` must be in the `PATH` of the editor process. Otherwise, use the absolute path of the command.
 - `birdcc lsp` without `--stdio` prints ``Only `birdcc lsp --stdio` is currently supported`` and exits with status 1.
 
-[Install the language server](./editors/other-editors.mdx#install-the-language-server) has the installation command.
+[Install the language server](./getting-started/installation.mdx#cli) has the installation command.
 
 </Accordion>
 

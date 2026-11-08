@@ -1,0 +1,5 @@
+{
+  "title": "Lint",
+  "icon": "ListChecks",
+  "pages": ["usage", "rules"]
+}

@@ -1,4 +1,5 @@
 {
   "title": "Editors",
-  "pages": ["vscode", "other-editors"]
+  "icon": "Code",
+  "pages": ["vscode", "neovim", "vim", "helix", "jetbrains", "language-server", "asn-data"]
 }

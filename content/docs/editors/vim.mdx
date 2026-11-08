@@ -1,0 +1,35 @@
+---
+title: Vim
+description: Set up BIRD.vim and the birdcc language server in Vim.
+---
+
+Vim gets syntax highlighting and filetype detection from BIRD.vim, and language features from the birdcc language server through an LSP plugin. [Installation](../getting-started/installation.mdx#cli) describes how to install `birdcc`.
+
+## Install BIRD.vim [#bird-vim]
+
+[BIRD.vim](https://github.com/bird-chinese-community/BIRD.vim) provides syntax highlighting, filetype detection and a filetype plugin for the `bird2` filetype. Its filetype detection uses the same rules as [BIRD.nvim](./neovim.mdx#bird-nvim). Install it with vim-plug:
+
+```vim
+Plug 'bird-chinese-community/BIRD.vim'
+```
+
+Or clone it into a native package directory:
+
+```sh
+git clone https://github.com/bird-chinese-community/BIRD.vim \
+  ~/.vim/pack/plugins/start/BIRD.vim
+```
+
+`:help bird2` opens the plugin documentation. To turn off the content check for `.conf` files, set `let g:bird2_heuristic_detect = 0`.
+
+## Start the language server [#language-server]
+
+BIRD.vim does not start a language server. With the [vim-lsp](https://github.com/prabirshrestha/vim-lsp) plugin, register `birdcc` for the `bird2` filetype:
+
+```vim title=".vimrc"
+au User lsp_setup call lsp#register_server({
+    \ 'name': 'birdcc',
+    \ 'cmd': {server_info->['birdcc', 'lsp', '--stdio']},
+    \ 'allowlist': ['bird2'],
+    \ })
+```

@@ -1,7 +1,6 @@
 ---
 title: VS Code
 description: 安装和配置 BIRD2 LSP，这是用于 BIRD 2 与 BIRD 3 配置文件的 VS Code 扩展。
-icon: Code
 ---
 
 BIRD2 LSP (`BIRDCC.bird2-lsp`) 内置语言服务器 (language server) `@birdcc/lsp`，并用 VS Code 自带的 JavaScript 运行时 (runtime) 启动它 (`ELECTRON_RUN_AS_NODE=1`)，不需要安装 Node.js 或 `@birdcc/cli`。另一个扩展 BIRD2 Configuration (`BIRDCC.vscode-bird2-conf`) 提供语法高亮。
@@ -53,6 +52,12 @@ code --install-extension BIRDCC.bird2-extension-pack
 
 这个扩展包 (extension pack) 也发布在 [Open VSX](https://open-vsx.org/extension/BIRDCC/bird2-extension-pack)。每个 `bird2-lsp-v<version>` 发布都附带 `bird2-extension-pack.vsix`。扩展包按 ID 列出成员扩展，所以安装这个文件时，编辑器仍会从扩展市场下载两个成员扩展。
 
+### 语法高亮扩展 (BIRD2 Configuration) [#vscode-bird2]
+
+[vscode-bird2](https://github.com/bird-chinese-community/vscode-bird2) 是 VS Code 扩展 BIRD2 Configuration (`BIRDCC.vscode-bird2-conf`) 的源码仓库。它包含这份 TextMate 语法，并为 `.conf`、`.bird`、`.bird2`、`.bird3`、`.bird2.conf` 和 `.bird3.conf` 文件注册 `bird2` 语言。
+
+这个扩展只提供语法高亮，不提供诊断 (diagnostic)、补全 (completion) 或格式化。它需要 VS Code 1.80 或更新版本，发布在 [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=BIRDCC.vscode-bird2-conf) 和 [Open VSX](https://open-vsx.org/extension/BIRDCC/vscode-bird2-conf)。
+
 ## 环境要求
 
 - VS Code 1.100 或更新版本。
@@ -76,21 +81,21 @@ code --install-extension BIRDCC.bird2-extension-pack
 
 ## 功能
 
-大部分功能来自语言服务器。[LSP 用法参考](../reference/language-server.mdx)说明了它的能力、设置和限制。
+大部分功能来自语言服务器。[LSP 用法参考](./language-server.mdx)说明了它的能力、设置和限制。
 
-| 功能         | 行为                                                                                                                                                                                                                                                                                                    |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 诊断         | 32 条 lint 规则，分为 `sym`、`cfg`、`net`、`type`、`bgp`、`ospf` 六组，在整个 `include` 图上分析。默认情况下，`sym`、`cfg`、`net` 和 `type` 规则报告 warning，`bgp` 和 `ospf` 规则报告 info。`bird.config.json` 中的 `linter.rules` 可以修改级别或关闭规则，见[规则](../reference/rules.mdx#severity)。 |
-| 补全         | 14 个关键字、4 个语句模板 (`include`、`define`、`router id`、`protocol bgp`)、`include` 图中声明的名称，以及 `include` 语句已经用过的路径。在 `import filter` 和 `export filter` 之后补全 filter 名称，在 `table` 之后补全 table 名称，在 `from` 之后补全 template 名称。触发字符为空格和 `.`。         |
-| 悬停提示     | 关键字文档（附 BIRD User's Guide 链接），以及已声明符号的详细信息。                                                                                                                                                                                                                                     |
-| 跳转到定义   | 把名称解析到 `include` 图中同名的 protocol、template、filter、function、table 或 `define` 常量的声明。                                                                                                                                                                                                  |
-| 查找引用     | 返回该声明，以及引用某个 template 的 `from` 子句。filter、function、table、protocol 和常量的其他使用位置不会列出。                                                                                                                                                                                      |
-| 大纲         | 顶层声明的文档符号。                                                                                                                                                                                                                                                                                    |
-| 格式化       | 格式化文档 (Format Document) 和格式化选定内容 (Format Selection) 用 `@birdcc/formatter` 格式化，引擎为 `dprint`（默认）或 `builtin`，安全模式默认开启。格式化选定内容会格式化整个文件，只应用选区内的修改。`bird.config.json` 中的 `formatter` 选项优先于扩展设置和编辑器缩进设置。                     |
-| 函数返回类型 | 悬停在函数名上时显示声明的或推断出的返回类型，以及最多五个 return 表达式。内嵌提示在函数名后显示类型。                                                                                                                                                                                                  |
-| ASN 信息     | AS 号的补全、悬停提示和内嵌提示，数据来自 `@birdcc/intel` 附带的 BGP.Tools OpenDB 快照。扩展不会为此发出网络请求。                                                                                                                                                                                      |
-| 代码片段     | 40 个代码片段，见[代码片段](#snippets)。                                                                                                                                                                                                                                                                |
-| 回退校验     | 语言服务器关闭或失败时，对已保存的文件运行 `bird -p`，见[回退校验](#fallback-validation)。                                                                                                                                                                                                              |
+| 功能         | 行为                                                                                                                                                                                                                                                                                                  |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 诊断         | 32 条 lint 规则，分为 `sym`、`cfg`、`net`、`type`、`bgp`、`ospf` 六组，在整个 `include` 图上分析。默认情况下，`sym`、`cfg`、`net` 和 `type` 规则报告 warning，`bgp` 和 `ospf` 规则报告 info。`bird.config.json` 中的 `linter.rules` 可以修改级别或关闭规则，见[规则](../linting/rules.mdx#severity)。 |
+| 补全         | 14 个关键字、4 个语句模板 (`include`、`define`、`router id`、`protocol bgp`)、`include` 图中声明的名称，以及 `include` 语句已经用过的路径。在 `import filter` 和 `export filter` 之后补全 filter 名称，在 `table` 之后补全 table 名称，在 `from` 之后补全 template 名称。触发字符为空格和 `.`。       |
+| 悬停提示     | 关键字文档（附 BIRD User's Guide 链接），以及已声明符号的详细信息。                                                                                                                                                                                                                                   |
+| 跳转到定义   | 把名称解析到 `include` 图中同名的 protocol、template、filter、function、table 或 `define` 常量的声明。                                                                                                                                                                                                |
+| 查找引用     | 返回该声明，以及引用某个 template 的 `from` 子句。filter、function、table、protocol 和常量的其他使用位置不会列出。                                                                                                                                                                                    |
+| 大纲         | 顶层声明的文档符号。                                                                                                                                                                                                                                                                                  |
+| 格式化       | 格式化文档 (Format Document) 和格式化选定内容 (Format Selection) 用 `@birdcc/formatter` 格式化，引擎为 `dprint`（默认）或 `builtin`，安全模式默认开启。格式化选定内容会格式化整个文件，只应用选区内的修改。`bird.config.json` 中的 `formatter` 选项优先于扩展设置和编辑器缩进设置。                   |
+| 函数返回类型 | 悬停在函数名上时显示声明的或推断出的返回类型，以及最多五个 return 表达式。内嵌提示在函数名后显示类型。                                                                                                                                                                                                |
+| ASN 信息     | AS 号的补全、悬停提示和内嵌提示，数据来自 `@birdcc/intel` 附带的 BGP.Tools OpenDB 快照。扩展不会为此发出网络请求。                                                                                                                                                                                    |
+| 代码片段     | 40 个代码片段，见[代码片段](#snippets)。                                                                                                                                                                                                                                                              |
+| 回退校验     | 语言服务器关闭或失败时，对已保存的文件运行 `bird -p`，见[回退校验](#fallback-validation)。                                                                                                                                                                                                            |
 
 扩展宿主 (extension host) 还为以下功能注册了自己的提供程序 (provider)：
 
@@ -227,7 +232,7 @@ Validate Active Document 和 Format Active Document 也出现在 `bird2` 文件�
 
 没有项目配置 (project configuration) 文件时，服务器在工作区文件夹中探测入口文件 (entry file)，并从它开始分析 `include` 图 (include graph)。通知会显示探测到的入口文件，例如 `Auto-detected BIRD entry: bird.conf (100% confidence).`。服务器找到多个入口文件或只有低置信度的候选时，通知会建议运行 `birdcc init`。
 
-[项目配置](../project-configuration.mdx)说明了文件格式和[入口文件探测](../project-configuration.mdx#entry-detection)。
+[项目配置](../configuration/entries-and-includes.mdx)说明了文件格式和[入口文件探测](../configuration/entries-and-includes.mdx#entry-detection)。
 
 ## 日志与问题
 

@@ -1,7 +1,6 @@
 ---
 title: VS Code
 description: Install and configure BIRD2 LSP, the VS Code extension for BIRD 2 and BIRD 3 configuration files.
-icon: Code
 ---
 
 BIRD2 LSP (`BIRDCC.bird2-lsp`) contains the language server `@birdcc/lsp` and starts it with the JavaScript runtime of VS Code (`ELECTRON_RUN_AS_NODE=1`). Node.js and `@birdcc/cli` are not needed. Syntax highlighting comes from the separate extension BIRD2 Configuration (`BIRDCC.vscode-bird2-conf`).
@@ -53,6 +52,12 @@ code --install-extension BIRDCC.bird2-extension-pack
 
 The pack is also on [Open VSX](https://open-vsx.org/extension/BIRDCC/bird2-extension-pack). Each `bird2-lsp-v<version>` release includes `bird2-extension-pack.vsix`. The pack names its members by ID, so installing the file still downloads both extensions from the extension gallery of the editor.
 
+### BIRD2 Configuration [#vscode-bird2]
+
+[vscode-bird2](https://github.com/bird-chinese-community/vscode-bird2) is the source of the VS Code extension BIRD2 Configuration (`BIRDCC.vscode-bird2-conf`). It contains the TextMate grammar and registers the `bird2` language for `.conf`, `.bird`, `.bird2`, `.bird3`, `.bird2.conf` and `.bird3.conf` files.
+
+The extension provides syntax highlighting only: no diagnostics, completion or formatting. It needs VS Code 1.80 or newer and is on the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=BIRDCC.vscode-bird2-conf) and [Open VSX](https://open-vsx.org/extension/BIRDCC/vscode-bird2-conf).
+
 ## Requirements
 
 - VS Code 1.100 or newer.
@@ -76,21 +81,21 @@ Other files, such as an `nginx.conf` without BIRD declarations, keep the `bird2`
 
 ## Features
 
-Most features come from the language server. The [language server reference](../reference/language-server.mdx) describes its capabilities, settings and limits.
+Most features come from the language server. The [language server reference](./language-server.mdx) describes its capabilities, settings and limits.
 
-| Feature               | Behavior                                                                                                                                                                                                                                                                                                                                                     |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Diagnostics           | 32 lint rules in six groups (`sym`, `cfg`, `net`, `type`, `bgp`, `ospf`), analyzed across the `include` graph. By default, `sym`, `cfg`, `net` and `type` rules report warnings and `bgp` and `ospf` rules report information. `linter.rules` in `bird.config.json` changes the severities or turns rules off; see [Rules](../reference/rules.mdx#severity). |
-| Completion            | 14 keywords, 4 statement templates (`include`, `define`, `router id`, `protocol bgp`), names declared in the `include` graph, and paths already used by `include` statements. Filter names are offered after `import filter` and `export filter`, table names after `table`, and template names after `from`. Trigger characters are space and `.`.          |
-| Hover                 | Keyword documentation with links to the BIRD User's Guide, and details of declared symbols.                                                                                                                                                                                                                                                                  |
-| Go to definition      | Resolves a name to the declaration of the protocol, template, filter, function, table or `define` constant with that name anywhere in the `include` graph.                                                                                                                                                                                                   |
-| Find references       | Returns the declaration plus the `from` clauses that name a template. Other uses of filters, functions, tables, protocols and constants are not reported.                                                                                                                                                                                                    |
-| Outline               | Document symbols for top-level declarations.                                                                                                                                                                                                                                                                                                                 |
-| Formatting            | Format Document and Format Selection run `@birdcc/formatter` with the `dprint` engine (default) or the `builtin` engine, with safe mode on by default. Format Selection formats the whole file and applies only the edits inside the selection. `formatter` options in `bird.config.json` take precedence over extension settings and editor indentation.    |
-| Function return types | Hover on a function name shows the declared or inferred return type and up to five return expressions. Inlay hints show the type after the function name.                                                                                                                                                                                                    |
-| ASN information       | Completion, hover and inlay hints for AS numbers, read from the BGP.Tools OpenDB snapshot in `@birdcc/intel`. The extension makes no network requests for them.                                                                                                                                                                                              |
-| Snippets              | 40 snippets; see [Snippets](#snippets).                                                                                                                                                                                                                                                                                                                      |
-| Fallback validation   | Runs `bird -p` on saved files when the language server is off or failed; see [Fallback validation](#fallback-validation).                                                                                                                                                                                                                                    |
+| Feature               | Behavior                                                                                                                                                                                                                                                                                                                                                   |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Diagnostics           | 32 lint rules in six groups (`sym`, `cfg`, `net`, `type`, `bgp`, `ospf`), analyzed across the `include` graph. By default, `sym`, `cfg`, `net` and `type` rules report warnings and `bgp` and `ospf` rules report information. `linter.rules` in `bird.config.json` changes the severities or turns rules off; see [Rules](../linting/rules.mdx#severity). |
+| Completion            | 14 keywords, 4 statement templates (`include`, `define`, `router id`, `protocol bgp`), names declared in the `include` graph, and paths already used by `include` statements. Filter names are offered after `import filter` and `export filter`, table names after `table`, and template names after `from`. Trigger characters are space and `.`.        |
+| Hover                 | Keyword documentation with links to the BIRD User's Guide, and details of declared symbols.                                                                                                                                                                                                                                                                |
+| Go to definition      | Resolves a name to the declaration of the protocol, template, filter, function, table or `define` constant with that name anywhere in the `include` graph.                                                                                                                                                                                                 |
+| Find references       | Returns the declaration plus the `from` clauses that name a template. Other uses of filters, functions, tables, protocols and constants are not reported.                                                                                                                                                                                                  |
+| Outline               | Document symbols for top-level declarations.                                                                                                                                                                                                                                                                                                               |
+| Formatting            | Format Document and Format Selection run `@birdcc/formatter` with the `dprint` engine (default) or the `builtin` engine, with safe mode on by default. Format Selection formats the whole file and applies only the edits inside the selection. `formatter` options in `bird.config.json` take precedence over extension settings and editor indentation.  |
+| Function return types | Hover on a function name shows the declared or inferred return type and up to five return expressions. Inlay hints show the type after the function name.                                                                                                                                                                                                  |
+| ASN information       | Completion, hover and inlay hints for AS numbers, read from the BGP.Tools OpenDB snapshot in `@birdcc/intel`. The extension makes no network requests for them.                                                                                                                                                                                            |
+| Snippets              | 40 snippets; see [Snippets](#snippets).                                                                                                                                                                                                                                                                                                                    |
+| Fallback validation   | Runs `bird -p` on saved files when the language server is off or failed; see [Fallback validation](#fallback-validation).                                                                                                                                                                                                                                  |
 
 The extension host registers its own providers for these features:
 
@@ -227,7 +232,7 @@ The language server searches upward from the directory of each file for `bird.co
 
 Without a project file, the server detects an entry file in the workspace folder and analyzes the `include` graph from it. A notification names the detected entry, for example `Auto-detected BIRD entry: bird.conf (100% confidence).` When the server finds several entry files or only a low-confidence candidate, the notification suggests running `birdcc init`.
 
-[Project configuration](../project-configuration.mdx) describes the file and [entry detection](../project-configuration.mdx#entry-detection).
+[Project configuration](../configuration/entries-and-includes.mdx) describes the file and [entry detection](../configuration/entries-and-includes.mdx#entry-detection).
 
 ## Logs and problems
 

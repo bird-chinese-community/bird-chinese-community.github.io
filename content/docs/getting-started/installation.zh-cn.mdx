@@ -1,0 +1,66 @@
+---
+title: 安装
+description: 安装 VS Code 扩展 BIRD2 LSP 和 birdcc 命令行工具，并找到其他编辑器的配置页面。
+---
+
+## 环境要求
+
+| 工具                                             | 要求                                                                  |
+| ------------------------------------------------ | --------------------------------------------------------------------- |
+| `@birdcc/cli` 提供的 `birdcc`                    | Node.js 22 或更新版本。                                               |
+| VS Code 扩展 BIRD2 LSP                           | VS Code 1.100 或更新版本。扩展内置语言服务器，不需要 Node.js。        |
+| `bird -p` 检查（`birdcc lint --bird`、回退校验） | 同一台机器上装有 BIRD 2 或 BIRD 3。lint 规则和编辑器功能不需要 BIRD。 |
+
+## 安装 VS Code 扩展 [#vscode]
+
+BIRD2 Extension Pack (`BIRDCC.bird2-extension-pack`) 会安装两个扩展：内置语言服务器 (language server) 的 BIRD2 LSP (`BIRDCC.bird2-lsp`)，以及提供语法高亮的 BIRD2 Configuration (`BIRDCC.vscode-bird2-conf`)。
+
+<Tabs items={["VS Code Marketplace", "Open VSX", "命令行"]}>
+
+<Tab value="VS Code Marketplace">
+
+在 VS Code 中打开扩展视图 (Extensions view)，搜索 `BIRD2 Extension Pack`，然后选择 **安装 (Install)**。Marketplace 页面是 [BIRDCC.bird2-extension-pack](https://marketplace.visualstudio.com/items?itemName=BIRDCC.bird2-extension-pack)。
+
+</Tab>
+
+<Tab value="Open VSX">
+
+VSCodium 等从 Open VSX 安装扩展的编辑器使用同一个扩展包 (extension pack)：[BIRDCC/bird2-extension-pack](https://open-vsx.org/extension/BIRDCC/bird2-extension-pack)。在编辑器的扩展视图中搜索 `BIRD2 Extension Pack`。
+
+</Tab>
+
+<Tab value="命令行">
+
+```sh
+code --install-extension BIRDCC.bird2-extension-pack
+```
+
+</Tab>
+
+</Tabs>
+
+VS Code 只在受信任的工作区 (trusted workspace) 中启用这个扩展。Neovim、Vim、Helix 和其他编辑器见[其他编辑器](#other-editors)。
+
+## 安装命令行工具 [#cli]
+
+```sh
+npm install --global @birdcc/cli
+```
+
+运行 `birdcc --help` 检查安装结果，输出会列出 `lint`、`fmt`、`lsp` 和 `init` 四个命令。要在项目中固定版本，运行 `npm install --save-dev @birdcc/cli`，然后用 `npx birdcc` 调用。
+
+VS Code 以外的编辑器用 `birdcc lsp --stdio` 启动语言服务器，所以 `birdcc` 必须位于编辑器进程的 `PATH` 中，否则请使用命令的绝对路径。
+
+[LSP 用法参考](../editors/language-server.mdx)列出了服务器的能力和设置。
+
+## 其他编辑器 [#other-editors]
+
+VS Code 以外的编辑器从语言服务器获得语言功能。语法高亮和文件类型识别 (filetype detection) 来自单独的插件。
+
+| 编辑器                                                    | 语法高亮与文件类型                       | 语言服务器                                 |
+| --------------------------------------------------------- | ---------------------------------------- | ------------------------------------------ |
+| [Neovim](../editors/neovim.mdx)                           | BIRD.nvim，Neovim 0.9 或更新版本         | `vim.lsp.config`，Neovim 0.11 或更新版本   |
+| [Vim](../editors/vim.mdx)                                 | BIRD.vim，Vim 8.0 或更新版本             | vim-lsp 等 LSP 插件                        |
+| [Helix](../editors/helix.mdx)                             | 无                                       | `languages.toml`                           |
+| [JetBrains IDE](../editors/jetbrains.mdx)                 | 通过 TextMate Bundles 加载 TextMate 语法 | LSP4IJ 等支持自定义服务器的 LSP 客户端插件 |
+| [其他 LSP 客户端](../editors/helix.mdx#other-lsp-clients) | 取决于编辑器                             | `birdcc lsp --stdio`                       |

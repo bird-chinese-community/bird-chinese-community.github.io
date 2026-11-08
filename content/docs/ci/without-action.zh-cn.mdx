@@ -1,0 +1,50 @@
+---
+title: 不使用 setup-birdcc
+description: 不使用 setup-birdcc action，在 GitHub Actions 工作流中安装 Node.js、birdcc 与 BIRD 并检查配置。
+---
+
+下面的工作流用 `actions/setup-node` 安装 Node.js，用 npm 安装 `birdcc`，用 apt 安装 BIRD 2，不使用 setup-birdcc。
+
+CLI 需要 Node.js 22 或更新版本。BIRD 仅在使用 `--bird` 时需要。与 setup-birdcc 的[基本工作流](./github-actions.mdx#basic-workflow)一样，这个工作流要求有一份带 `main` 的 `bird.config.json`。
+
+```yaml title=".github/workflows/bird.yml"
+name: BIRD config
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install birdcc
+        run: npm install --global @birdcc/cli@1.0.0
+
+      - name: Install BIRD 2
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bird2
+
+      - name: Lint and parse with BIRD
+        run: birdcc lint --bird
+        env:
+          BIRD_BIN: /usr/sbin/bird
+
+      - name: Check formatting
+        run: birdcc fmt --check
+```
+
+Ubuntu 的 `bird2` 软件包把可执行文件安装到 `/usr/sbin/bird`。不使用 `--bird` 时，去掉安装 BIRD 的步骤。
+
+要保存一次运行的 JSON 报告，用 `birdcc lint --format json > birdcc-lint.json` 写入文件。[JSON 输出](../cli.mdx#json-output)参考列出各字段。

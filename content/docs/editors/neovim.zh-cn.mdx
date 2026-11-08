@@ -1,0 +1,73 @@
+---
+title: Neovim
+description: 在 Neovim 中配置 BIRD.nvim 与 birdcc 语言服务器。
+---
+
+Neovim 从 BIRD.nvim 获得语法高亮和文件类型识别 (filetype detection)，从语言服务器 (language server) 获得语言功能。`birdcc lsp --stdio` 启动这个服务器，[安装](../getting-started/installation.mdx#cli)说明如何安装 `birdcc`。
+
+## 安装 BIRD.nvim [#bird-nvim]
+
+[BIRD.nvim](https://github.com/bird-chinese-community/BIRD.nvim) 设置 `bird2` 文件类型并提供语法高亮。用 lazy.nvim 安装：
+
+```lua
+{
+  "bird-chinese-community/BIRD.nvim",
+  version = "^1.0.14",
+  lazy = false,
+  config = function()
+    require("bird2").setup()
+  end,
+}
+```
+
+请保留 `lazy = false`：插件必须在文件类型识别之前加载。也可以改用原生包 (native package)，把仓库克隆到 `start` 目录：
+
+```sh
+git clone https://github.com/bird-chinese-community/BIRD.nvim \
+  ~/.local/share/nvim/site/pack/plugins/start/BIRD.nvim
+```
+
+BIRD.nvim 为以下文件设置 `bird2` 文件类型：
+
+- 扩展名为 `.bird`、`.bird2`、`.bird3` 的文件，以及匹配 `*.bird*.conf` 的文件。
+- 名为 `bird.conf`、`bird2.conf`、`bird3.conf`、`bird6.conf` 或 `bird-*` 的文件。
+- 位于 `bird/`、`bird2/` 或 `bird3/` 目录下的文件。
+- 前 200 行内含有 BIRD 配置的 `.conf` 文件。要关闭这项内容检查，调用 `require("bird2").setup({ heuristic_detect = false })`。
+
+`:help bird2` 打开插件文档，`:checkhealth bird2` 检查安装情况。
+
+## 启动语言服务器 [#language-server]
+
+Neovim 0.11 及更新版本用 `vim.lsp.config` 配置语言服务器。把以下内容加入 `init.lua`：
+
+```lua title="init.lua"
+vim.lsp.config("birdcc", {
+  cmd = { "birdcc", "lsp", "--stdio" },
+  filetypes = { "bird2" },
+  root_markers = { "bird.config.json", "birdcc.config.json", ".git" },
+})
+vim.lsp.enable("birdcc")
+```
+
+nvim-lspconfig 中没有 `birdcc` 的配置，所以无论是否安装 nvim-lspconfig，都需要上面这段定义。
+
+Neovim 用 `settings` 回应服务器发出的 `workspace/configuration` 请求。[语言服务器设置](./language-server.mdx#settings)列出了 `bird2-lsp` 下的键。例如，关闭 ASN 悬停提示 (hover)：
+
+```lua title="init.lua"
+vim.lsp.config("birdcc", {
+  settings = {
+    ["bird2-lsp"] = {
+      intel = { hover = false },
+    },
+  },
+})
+```
+
+不使用 BIRD.nvim 时，请在启用服务器之前自行注册文件类型：
+
+```lua title="init.lua"
+vim.filetype.add({
+  extension = { bird = "bird2", bird2 = "bird2", bird3 = "bird2" },
+  filename = { ["bird.conf"] = "bird2" },
+})
+```

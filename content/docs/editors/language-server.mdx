@@ -1,0 +1,226 @@
+---
+title: Language server reference
+description: Start command, LSP methods, settings, diagnostic codes, entry detection notifications and limits of the @birdcc/lsp language server 1.0.0.
+---
+
+`@birdcc/lsp` is a Language Server Protocol server for BIRD 2 and BIRD 3 configuration files. It uses JSON-RPC over stdin and stdout.
+
+The BIRD2 LSP extension for VS Code bundles `@birdcc/lsp`, and `birdcc lsp --stdio` from `@birdcc/cli` starts the server for other editors. The server requires Node.js 22 or newer.
+
+## Start the server [#start]
+
+```sh
+birdcc lsp --stdio
+node node_modules/@birdcc/lsp/dist/server.js --stdio
+```
+
+- `npm install --global @birdcc/cli` gives the first command. `npm install @birdcc/lsp` gives the second one.
+- The path of the second command is relative to the project that installed the package. An editor that starts the server in another directory needs the absolute path.
+- `--stdio` is required.
+- The server sends its log to the client as `window/logMessage` notifications.
+- The process exits when the client sends `exit` or closes stdin. The exit status is 0 when `shutdown` came first, and 1 otherwise.
+
+[Other editors](../getting-started/installation.mdx#other-editors) shows the client configuration for Neovim, Vim, Helix and other LSP clients.
+
+## Capabilities [#capabilities]
+
+The `initialize` response contains these capabilities:
+
+```json
+{
+  "capabilities": {
+    "textDocumentSync": 2,
+    "documentSymbolProvider": true,
+    "hoverProvider": true,
+    "definitionProvider": true,
+    "referencesProvider": true,
+    "documentFormattingProvider": true,
+    "completionProvider": {
+      "resolveProvider": false,
+      "triggerCharacters": [" ", "."]
+    },
+    "inlayHintProvider": true
+  }
+}
+```
+
+| Method                                                                            | Behavior                                                                                                                                                                                                                                                                                                                                                                                               |
+| --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `textDocument/didOpen`, `textDocument/didChange`, `textDocument/didClose`         | Incremental synchronization (`textDocumentSync: 2`). Open and change start an analysis 120 ms after the last event. Close removes the diagnostics that no other open entry file keeps.                                                                                                                                                                                                                 |
+| `textDocument/publishDiagnostics`                                                 | Diagnostics for every file in the include graph of the entry file. See [Diagnostics](#diagnostics).                                                                                                                                                                                                                                                                                                    |
+| `textDocument/completion`                                                         | 14 keywords and 4 snippets (`include`, `define`, `router id`, `protocol bgp`). Names declared in the include graph. Filter names after `import filter` and `export filter`, table names after `table`, template names after `from`. Include paths already used in the include graph, inside `include "`. Up to 10 AS numbers from the [ASN database](./asn-data.mdx) that start with the typed digits. |
+| `textDocument/hover`                                                              | Keyword documentation with syntax, parameters and a link to the BIRD User's Guide. Summaries of declarations. AS number details: name, country and type.                                                                                                                                                                                                                                               |
+| `textDocument/definition`                                                         | The declaration of the protocol, template, filter, function, table or `define` constant with the name, anywhere in the include graph.                                                                                                                                                                                                                                                                  |
+| `textDocument/references`                                                         | The declaration and the `from` clauses that name a template. Other uses of filters, functions, tables, protocols and constants are not returned.                                                                                                                                                                                                                                                       |
+| `textDocument/documentSymbol`                                                     | Protocols, templates, filters, functions, `define` constants, tables, attributes, MPLS domains, includes, `router id`, `hostname` and `graceful restart wait`.                                                                                                                                                                                                                                         |
+| `textDocument/formatting`                                                         | Formats the whole document with `@birdcc/formatter` and returns one text edit.                                                                                                                                                                                                                                                                                                                         |
+| `textDocument/inlayHint`                                                          | The country flag and AS number after AS numbers that the ASN database contains. The declared or inferred return type after each function name.                                                                                                                                                                                                                                                         |
+| `workspace/configuration` (server to client)                                      | Requests the `bird2-lsp` section for each document when the client supports `workspace.configuration`. See [Settings](#settings).                                                                                                                                                                                                                                                                      |
+| `workspace/didChangeConfiguration`                                                | Replaces the settings with `settings["bird2-lsp"]` or `settings.birdcc` and analyzes the open documents again. When the client supports it, the server then sends `workspace/inlayHint/refresh`.                                                                                                                                                                                                       |
+| `client/registerCapability` (server to client), `workspace/didChangeWatchedFiles` | When the client supports dynamic registration of `workspace/didChangeWatchedFiles`, the server watches `bird.config.json`, `birdcc.config.json`, `*.conf` and `*.bird` in each workspace folder. A change analyzes the affected open documents again.                                                                                                                                                  |
+| `window/showMessage` (server to client)                                           | [Entry detection notifications](#notifications), and `Invalid BIRD editor settings: <message>` for settings that `workspace/didChangeConfiguration` sends with invalid values.                                                                                                                                                                                                                         |
+| `window/logMessage` (server to client)                                            | Log lines, for example `[intel] ASN database loaded: 122819 records` and `[project] using <path> (mode=workspace, entry=<uri>)`.                                                                                                                                                                                                                                                                       |
+
+The server does not implement other requests, such as `textDocument/rangeFormatting`, `textDocument/rename` and `textDocument/codeAction`.
+
+## Diagnostics [#diagnostics]
+
+- The server analyzes the include graph of the entry file of each open document and publishes diagnostics for every file in that graph.
+- Rule diagnostics carry the rule code and the severity of `@birdcc/linter`, after `linter.rules` and `linter.enabled` of the project configuration. [Rules](../linting/rules.mdx) lists the codes.
+- The LSP severity values are:
+  - `error`: 1
+  - `warning`: 2
+  - `info`: 3
+- The server does not run `bird -p`. `birdcc lint --bird` runs BIRD validation.
+
+The server adds three codes of its own:
+
+| Code                  | Severity    | Source          | Message                                                | Reported when                                                                                                                                                                                    |
+| --------------------- | ----------- | --------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `analysis/size-limit` | 2 (warning) | `birdcc`        | `Document exceeds the analysis size limit (<n> bytes)` | The document is larger than the size limit. The server does not analyze it. The diagnostic is on the first line. See [Limits](#limits).                                                          |
+| `config/invalid`      | 1 (error)   | `birdcc-config` | `Invalid BIRD project config at <path>: <problems>`    | The project configuration failed [validation](../configuration/reference.mdx#validation). The diagnostic is on the configuration file. The documents that use the file get no other diagnostics. |
+| `lsp/internal-error`  | 1 (error)   | `lsp`           | The message of the exception                           | The analysis of the document threw an exception. The diagnostic is on the first line.                                                                                                            |
+
+## Settings [#settings]
+
+The server reads editor settings from two places:
+
+1. `initializationOptions.birdcc` in the `initialize` request. A value of the wrong type makes `initialize` fail.
+2. The `bird2-lsp` section of `workspace/configuration`, requested for each document when the client supports `workspace.configuration`. These values override the values from `initializationOptions`.
+
+`workspace/didChangeConfiguration` with `settings["bird2-lsp"]` or `settings.birdcc` replaces the values from `initializationOptions` and analyzes the open documents again.
+
+| Key                            | Type    | Default                    | Effect                                                                                                                        |
+| ------------------------------ | ------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `enabled`                      | boolean | `true`                     | `false` stops the analysis. Every request returns an empty result.                                                            |
+| `performance.maxFileSizeBytes` | integer | not set                    | Document size limit when the project leaves `crossFile.maxDocumentBytes` unset. When both are set, the smaller value applies. |
+| `intel.enabled`                | boolean | `true`                     | `false` turns off all AS number features.                                                                                     |
+| `intel.hover`                  | boolean | `true`                     | AS number hover.                                                                                                              |
+| `intel.completion`             | boolean | `true`                     | AS number completion.                                                                                                         |
+| `intel.inlayHints`             | boolean | `true`                     | AS number inlay hints.                                                                                                        |
+| `typeHints.enabled`            | boolean | `true`                     | `false` turns off the function return type hints.                                                                             |
+| `typeHints.inlay.enabled`      | boolean | `true`                     | Function return type inlay hints.                                                                                             |
+| `formatter.engine`             | string  | `"dprint"`                 | `"dprint"` or `"builtin"`. When the key is not set, a failing `dprint` run falls back to `builtin`.                           |
+| `formatter.indentSize`         | integer | `tabSize` of the request   | Spaces for each indentation level, 1 to 16.                                                                                   |
+| `formatter.useTabs`            | boolean | opposite of `insertSpaces` | Indent with tabs.                                                                                                             |
+| `formatter.lineWidth`          | integer | `80`                       | Line width, 20 to 1000. The formatter does not wrap lines.                                                                    |
+| `formatter.safeMode`           | boolean | `true`                     | Reject the output when its declarations or parser errors differ from those of the input.                                      |
+
+- The server ignores other keys. Unknown keys inside `formatter` are errors.
+- For formatting, the `formatter` section of the project configuration overrides these settings.
+- The VS Code extension sends its `bird2-lsp.*` settings with these keys. See [VS Code settings](./vscode.mdx#settings).
+
+Settings in `initializationOptions`:
+
+```json
+{
+  "birdcc": {
+    "intel": { "inlayHints": false },
+    "typeHints": { "inlay": { "enabled": false } }
+  }
+}
+```
+
+The same settings as the `bird2-lsp` section of `workspace/configuration`:
+
+```json
+{
+  "bird2-lsp": {
+    "intel": { "inlayHints": false },
+    "typeHints": { "inlay": { "enabled": false } }
+  }
+}
+```
+
+## Project configuration [#project-configuration]
+
+For each document, the server reads the nearest `bird.config.json` or `birdcc.config.json` in the directory of the document or a parent directory.
+
+The server uses these keys:
+
+- `main`
+- `workspaces`
+- `includePaths`
+- `crossFile`
+- `linter.enabled` and `linter.rules`
+- `formatter`
+
+The server ignores `linter.withBird` and the `bird` section.
+
+| Configuration         | Entry file of the analysis                                                                                                                         |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `workspaces` is set   | `bird.conf` in the deepest matched directory that contains the document, or in the directory of the document.                                      |
+| `main` is set         | The `main` file.                                                                                                                                   |
+| Neither key is set    | The document.                                                                                                                                      |
+| No configuration file | The entry file that [entry detection](../configuration/entries-and-includes.mdx#entry-detection) selects in the workspace folder, or the document. |
+
+- When the selected entry file does not exist, the document is its own entry.
+- The server analyzes a document on its own when the include graph of the entry file does not reach it.
+- With `crossFile.enabled: false`, the server analyzes each document on its own.
+- [Include resolution](../configuration/entries-and-includes.mdx#include-resolution) describes the search paths and the workspace root.
+- The file watcher ignores changes in `.git`, `node_modules`, `dist`, `build`, `target`, `coverage`, `vendor` and `.pnpm` unless the changed file is part of an analyzed include graph.
+
+## Entry detection notifications [#notifications]
+
+After `initialized`, the server runs [entry detection](../configuration/entries-and-includes.mdx#entry-detection) in each workspace folder that has no `bird.config.json` or `birdcc.config.json` at its root. It reports the result with `window/showMessage`:
+
+| Detection result                   | Type    | Message                                                                                                             |
+| ---------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------- |
+| `single`, confidence 70% or more   | Info    | `Auto-detected BIRD entry: <path> (<n>% confidence).`                                                               |
+| `single-ambiguous`                 | Warning | ``BIRD project entry detected with low confidence: <path>. Consider creating bird.config.json with `birdcc init`.`` |
+| `monorepo-multi-entry`             | Info    | ``Multiple BIRD project entries detected. Run `birdcc init --write` to generate workspace configuration.``          |
+| `monorepo-multi-role`              | Info    | ``BIRD project with multiple roles detected. Entry: <path>. Run `birdcc init --write` for full configuration.``     |
+| `not-found`, or `single` below 70% | none    |                                                                                                                     |
+
+The server also sends these messages. It sends the first message once for each configuration file and the second message once per session:
+
+| Condition                                                                             | Type | Message                                                                                                                                                      |
+| ------------------------------------------------------------------------------------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| The first analysis that uses a project configuration file                             | Info | `Using <file> (<mode> mode) for cross-file analysis.` `<file>` is `bird.config.json` or `birdcc.config.json`. The mode is `workspace`, `main` or `document`. |
+| An analysis without a project configuration file, with more than one workspace folder | Info | `No bird.config.json found in this multi-root workspace. Add workspaces/main/includePaths for better analysis.`                                              |
+
+The log contains the detection result, for example `[init] Project detection: kind=single, confidence=100%, candidates=3`.
+
+## Document eligibility and limits [#limits]
+
+The server analyzes a document only when one of these conditions is true:
+
+1. The project configuration sets `main` to the document.
+2. The file name is `bird.conf`, `bird2.conf`, `bird3.conf` or `bird6.conf`, with or without a leading dot, in any letter case.
+3. The parser finds a top-level `router id`, `include`, `define`, `attribute`, `table`, `mpls domain`, `filter`, `function`, `template`, `graceful restart wait`, `hostname`, `timeformat`, `watchdog`, or a `protocol` of a BIRD protocol type.
+
+For other documents, the server publishes no diagnostics and returns empty results. The server does not use the `languageId` of the document. The client decides which files it sends.
+
+| Limit                      | Value                                                                                                    | Set by                                                                                  |
+| -------------------------- | -------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Size of the open document  | The smaller of the document limit and `crossFile.maxTotalBytes`. The document limit is 2 MiB by default. | `crossFile.maxDocumentBytes`, `performance.maxFileSizeBytes`, `crossFile.maxTotalBytes` |
+| Nesting depth of includes  | 16 levels                                                                                                | `crossFile.maxDepth`                                                                    |
+| Files in one include graph | 256 files                                                                                                | `crossFile.maxFiles`                                                                    |
+| Size of one include graph  | 16 MiB                                                                                                   | `crossFile.maxTotalBytes`                                                               |
+| Entry detection scan       | 8 directory levels, 20,000 files, 20,000 directory entries, 2,048 directories                            | Fixed                                                                                   |
+| Wildcard include listing   | 20,000 directory entries for each analysis                                                               | Fixed                                                                                   |
+
+A document over the size limit gets one `analysis/size-limit` diagnostic and no other analysis.
+
+The server skips includes over a graph limit and reports them as `sym/undefined`.
+
+## Start the server from code [#api]
+
+`startLspServer` starts the server in the current process:
+
+```ts title="server.mjs"
+import { startLspServer } from "@birdcc/lsp";
+
+startLspServer({ asnDbPath: "/srv/asn/asn-db.bin.gz" });
+```
+
+```sh
+node server.mjs --stdio
+```
+
+| Option            | Type    | Effect                                                                   |
+| ----------------- | ------- | ------------------------------------------------------------------------ |
+| `asnDbPath`       | string  | Load this ASN database file instead of the bundled one.                  |
+| `disableAsnIntel` | boolean | `true` does not load an ASN database. AS number features return nothing. |
+
+`birdcc lsp` passes neither option. [ASN data](./asn-data.mdx#replace) describes the database file.

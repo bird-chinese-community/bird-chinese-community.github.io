@@ -1,0 +1,321 @@
+---
+title: 入口与 include
+description: bird.config.json 如何为 birdcc 与语言服务器指定入口文件、工作区、include 搜索路径和分析上限。
+---
+
+`bird.config.json` 为 `birdcc lint`、`birdcc fmt` 与语言服务器 (language server) 描述一个 BIRD 项目。这个文件设置以下内容：
+
+- 入口文件 (entry file) 或工作区 (workspace) 目录
+- include 搜索路径 (include search path)
+- linter、格式化器 (formatter) 与跨文件分析 (cross-file analysis) 的选项
+
+[配置参考](./reference.mdx)列出全部键。
+
+```json title="bird.config.json"
+{
+  "$schema": "https://raw.githubusercontent.com/bird-chinese-community/BIRD-LSP/main/schemas/bird.config.schema.json",
+  "main": "bird.conf",
+  "includePaths": ["./filters"],
+  "linter": { "rules": { "sym/*": "error" } }
+}
+```
+
+## 文件名与位置 [#file-name]
+
+- birdcc 与语言服务器读取 `bird.config.json`。`birdcc.config.json` 是格式相同的别名。同一目录中两个文件都存在时，它们使用 `bird.config.json`。
+- 查找从文件所在目录开始，逐级向上直到文件系统根目录。最先找到的配置文件生效。这些工具不合并其他目录中的配置文件。
+- 文件中的路径 (`main`、`workspaces`、`includePaths`) 相对于配置文件所在目录。
+- 文件内容是普通 JSON，注释和末尾逗号都是解析错误。
+
+文件无效时，`birdcc lint` 与 `birdcc fmt` 输出问题并以退出码 1 结束：
+
+```text
+Invalid BIRD project config at /srv/bird/bird.config.json: crossFile.maxDepth: Too small: expected number to be >=1; crossFile: Unrecognized key: "follow"
+```
+
+语言服务器在配置文件上以 `config/invalid` 诊断 (diagnostic) 报告同一条消息，并且不再为使用该配置文件的文档发布其他诊断。[校验](./reference.mdx#validation)列出各项检查。
+
+## 用 birdcc init 生成文件 [#init]
+
+```sh
+birdcc init --dry-run
+birdcc init --write
+```
+
+`birdcc init` 按以下步骤运行：
+
+1. 扫描一个目录。
+2. 探测入口文件。
+3. 在该目录中写出 `bird.config.json`。
+
+`--dry-run` 只输出结果，不写文件。对于包含 `bird.conf`、`filters.conf` 与 `peers/transit.conf` 的项目，输出如下：
+
+```text
+Detected candidates:
+  bird.conf                                score:143  [canonical-name, root-level, global-router-id, protocol-device, protocol-kernel, log-directive, include-count(2), bird-eligibility(canonical-filename), visited-count(2)]
+  filters.conf                             score:  5  [root-level, library-name-penalty(filter), bird-eligibility(semantic-evidence)]
+  peers/transit.conf                       score: -5  [fragment-dir-penalty(peers), bird-eligibility(semantic-evidence)]
+
+Conclusion: single (confidence: 100%)
+→ Will write: {"$schema":"https://raw.githubusercontent.com/bird-chinese-community/BIRD-LSP/main/schemas/bird.config.schema.json","main":"./bird.conf","formatter":{"indentSize":2}}
+```
+
+随后 `birdcc init --write` 写出：
+
+```json title="bird.config.json"
+{
+  "$schema": "https://raw.githubusercontent.com/bird-chinese-community/BIRD-LSP/main/schemas/bird.config.schema.json",
+  "main": "./bird.conf",
+  "formatter": {
+    "indentSize": 2
+  }
+}
+```
+
+- 选中一个入口文件时写出 `main`。有多个相互独立的入口文件时写出 `workspaces`，每个入口文件对应一个目录。
+- init 在最多 5 个入口文件中探测到 2、4 或 8 个空格的缩进时，文件包含 `formatter.indentSize`。
+- 结果中既没有选中的入口文件，也没有工作区目录时，`birdcc init --write` 不写文件，并以退出码 1 结束。这种情况下请手动设置 `main`。
+- 文件已存在并设置了 `main` 或 `workspaces` 时，`init` 不做任何修改，以退出码 0 结束。文件已存在但没有这两个键时，`--write` 失败。两种情况下 `--force` 都会覆盖该文件。
+
+[`init` 参考](../cli.mdx#init)列出全部选项。
+
+## 入口探测 (entry detection) [#entry-detection]
+
+入口文件是 include 图 (include graph) 的根：分析从这里开始，沿它的 `include` 语句读取其他文件。
+
+以下三处调用同一套探测逻辑：
+
+| 调用方        | 扫描的目录                                  | 触发条件                                                      | 扫描上限                |
+| ------------- | ------------------------------------------- | ------------------------------------------------------------- | ----------------------- |
+| `birdcc init` | `root` 参数，默认为当前目录                 | 每次运行                                                      | 8 层目录，20,000 个文件 |
+| `birdcc lint` | 所检查的文件所在目录，以及最多四层上级目录  | 跨文件分析开启，且所检查的文件不含 `include` 语句             | 8 层目录，2,000 个文件  |
+| 语言服务器    | 包含该文档的工作区文件夹 (workspace folder) | 没有适用于该文档的 `bird.config.json` 或 `birdcc.config.json` | 8 层目录，20,000 个文件 |
+
+`birdcc lint` 在这五个目录中逐个运行探测，使用得分最高的选中入口文件，遇到得分不低于 80 的结果就停止。
+
+语言服务器启动后，还会在每个根目录下没有配置文件的工作区文件夹中运行探测。语言服务器用[通知 (notification)](../editors/language-server.mdx#notifications)显示结果。
+
+探测按以下步骤进行：
+
+1. 按广度优先收集 `.conf` 文件，最多读取 20,000 个目录项和 2,048 个目录。
+   - 跳过隐藏目录、符号链接，以及 `node_modules`、`dist`、`build`、`target`、`vendor`、`coverage`、`__tests__`、`test`、`tests`、`fixtures`、`examples`、`example`、`docs` 目录。`birdcc init --ignore` 向这个列表追加目录名。
+   - 不扫描 `/` 及其下一层目录，例如 `/etc`。
+2. 最多为 100 个文件打分。文件名属于下表 `canonical-name` 行的文件排在前面；同一类文件中，离扫描目录更近的排在前面。
+3. 只有带 BIRD 特征的文件才会成为候选文件 (candidate)，其他文件得到 `rejected-no-bird-evidence` 信号 (signal)。BIRD 特征是下列任一项：
+   - 文件名为 `bird.conf`、`bird2.conf`、`bird3.conf` 或 `bird6.conf`，可带前导点，不区分大小写
+   - 解析器 (parser) 从中找到了 BIRD 声明
+4. 按下表累加各信号的分数。`birdcc init --dry-run` 输出每个候选文件的信号。
+5. 构建候选文件之间的 include 图，然后给出结论。
+
+| 信号                                 | 分数                            | 条件                                                                                                                           |
+| ------------------------------------ | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `canonical-name`                     | +25                             | 文件名为 `bird.conf`、`bird2.conf`、`bird3.conf`、`bird6.conf`、`.bird2.conf` 或 `.bird3.conf`。                               |
+| `root-level`                         | +10                             | 文件位于扫描目录本身。                                                                                                         |
+| `global-router-id`                   | +50                             | 顶层的 `router id` 语句。                                                                                                      |
+| `protocol-router-id`                 | +10                             | `router id` 语句只出现在 `protocol` 块内。                                                                                     |
+| `protocol-device`、`protocol-kernel` | 各 +20                          | `protocol device` 或 `protocol kernel` 块。                                                                                    |
+| `log-directive`                      | +10                             | `log` 语句。                                                                                                                   |
+| `include-count(n)`                   | 每条 `include` +2，最多 +20     | 文件含有 `include` 语句。                                                                                                      |
+| `bird-eligibility(reason)`           | +15，带 `canonical-name` 时为 0 | 文件带有 BIRD 特征。`reason` 为 `canonical-filename` 或 `semantic-evidence`。                                                  |
+| `fragment-dir-penalty(dir)`          | 每个目录 −20                    | 路径中有名为 `filter`、`filters`、`peer`、`peers`、`snippet`、`snippets`、`template` 或 `templates` 的目录。                   |
+| `library-name-penalty(word)`         | −20                             | 文件名包含 `var`、`filter`、`func` 或 `macro`。                                                                                |
+| `define-only-no-protocol`            | −15                             | 有 `define` 语句但没有 `protocol` 块。                                                                                         |
+| `visited-count(n)`                   | 每个可达文件 +2，最多 +30       | 文件通过 `include` 能到达其他文件。只有得分最高的 5 个候选文件参与这一项。                                                     |
+| `missing-includes(n)`                | −10                             | include 的文件中有超过 5 个不存在。                                                                                            |
+| `include-propagation(file,depth:n)`  | `file` 的分数 × 0.8ⁿ            | 文件经过 `n` 层（1 到 3）include 到 `file`。只计算 `file` 的 `global-router-id`、`protocol-device` 与 `protocol-kernel` 分数。 |
+
+探测还会给每个候选文件分配一个角色 (role)：
+
+- 没有 `protocol` 块的文件在以下任一情况下属于库文件 (library)：
+  - 含有 `define` 或顶层 `router id` 语句。
+  - 文件名包含 `vars`、`filter`、`func`、`macro`、`define`、`common`、`helper` 等词。
+  - 只声明常量 (constant)、过滤器 (filter)、函数 (function)、路由表 (table) 和模板 (template)。
+- 含有 `protocol` 块的文件位于 `filters`、`peers`、`templates`、`includes`、`common`、`shared` 等目录中时，属于片段文件 (fragment)。
+
+入口竞争者 (entry contender) 是同时满足以下两个条件的候选文件：
+
+- 其他已扫描文件都没有 include 它。
+- 它带有 `canonical-name` 信号，或者既不是库文件也不是片段文件。
+
+探测给出以下结论 (conclusion) 之一：
+
+| 结论                   | 条件                                                                                                                                                                       | 置信度 (confidence) | 选中的入口文件                   |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- | -------------------------------- |
+| `not-found`            | 没有候选文件，或没有入口竞争者。                                                                                                                                           | 100 或 50           | 无。                             |
+| `single`               | 只有一个入口竞争者，或者最高分比第二名高出 30 分以上。                                                                                                                     | 50 + 分数，最高 100 | 置信度不低于 70 时选中最高分者。 |
+| `single-ambiguous`     | 最高分比第二名高出不超过 30 分。                                                                                                                                           | 10 到 60            | 无。                             |
+| `monorepo-multi-role`  | 只有一个竞争者得分为正，且同名的库文件分布在多个目录中。或者：各竞争者的 include 图有 30% 及以上的文件重合，其他竞争者都达不到最高分的 70%，且这些竞争者分布在多个目录中。 | 70                  | 最高分者。                       |
+| `monorepo-multi-entry` | 得分为正的竞争者分布在多个目录中，且结论不属于 `monorepo-multi-role`。                                                                                                     | 70                  | 无。`init` 写出 `workspaces`。   |
+
+`init` 把选中的入口文件写成 `main`。`birdcc lint` 与语言服务器把选中的入口文件作为 include 图的入口。
+
+结论为 `monorepo-multi-entry` 时，`init` 写出每个得分为正、且既不是库文件也不是片段文件的竞争者所在的目录。
+
+## 入口文件与工作区 (`main`、`workspaces`) [#entry-files]
+
+只有一个入口文件的项目设置 `main`：
+
+```json title="bird.config.json"
+{
+  "main": "bird.conf"
+}
+```
+
+- 不带文件参数的 `birdcc lint` 与 `birdcc fmt` 使用 `main` 指定的文件。没有设置 `main` 时，使用配置文件所在目录中的 `bird.conf`。
+- 带文件参数时，`birdcc lint` 检查该文件，并用[入口探测](#entry-detection)找到其 include 图的入口，这一步不使用 `main`。
+- 语言服务器把 `main` 文件作为配置文件以下所有文档的入口。`main` 的 include 图到达不了某个文档时，语言服务器单独分析该文档。
+- `main` 文件不存在时，`birdcc lint` 与 `birdcc fmt` 失败，语言服务器单独分析每个打开的文档。
+
+有多个入口文件的仓库设置 `workspaces`。每个模式匹配若干目录，每个匹配目录的入口文件是其中的 `bird.conf`：
+
+```json title="bird.config.json"
+{
+  "workspaces": ["sites/*", "!sites/legacy"]
+}
+```
+
+- 不带文件参数的 `birdcc lint` 检查每个匹配目录中的 `bird.conf`，跳过没有 `bird.conf` 的匹配目录。
+- 设置了 `workspaces` 时，`birdcc fmt` 需要文件参数。
+- 语言服务器使用包含该文档的最深一层匹配目录中的 `bird.conf`。没有模式匹配时，使用文档所在目录中的 `bird.conf`。该文件不存在时，文档本身就是入口。
+- 设置了 `workspaces` 时，birdcc 与语言服务器忽略 `main`。
+
+[`workspaces` 参考](./reference.mdx#workspaces)说明模式语法。
+
+## include 解析 (include resolution) [#include-resolution]
+
+birdcc 与语言服务器按以下顺序，把每个 `include` 路径解析为一组候选路径：
+
+1. 相对于含有该 `include` 的文件所在目录的路径。这些工具原样使用绝对路径。
+2. 默认搜索路径 (default search path)：
+   - `birdcc lint`：
+     - 所检查的文件含有 `include` 语句时：该文件所在目录。
+     - 入口探测选中入口文件时：探测选中入口文件时所扫描的目录，以及入口文件所在目录。
+     - 探测没有选中入口文件时：所检查的文件所在目录。
+   - 有配置文件时的语言服务器：配置文件所在目录。
+   - 没有配置文件时的语言服务器：工作区文件夹，以及探测到的入口文件所在目录。探测没有选中入口文件时，没有默认搜索路径。
+3. `includePaths` 中的各项，按顺序，相对于配置文件。
+
+对每个搜索路径，这些工具先尝试完整的 `include` 路径，再依次去掉开头的目录：`a/b/c.conf`、`b/c.conf`、`c.conf`。
+
+文件名部分的 `*`（例如 `include "peers/*.conf";`）按名称顺序匹配该目录中的文件。这些工具不展开目录部分的 `*`。
+
+```mermaid
+flowchart TD
+  inc["include 语句"] --> list["候选路径：<br/>1. 相对于 include 所在文件<br/>2. 默认搜索路径<br/>3. includePaths"]
+  list --> next{"还有候选路径？"}
+  next -->|是| inside{"位于工作区根目录内<br/>或 externalIncludes: true？"}
+  inside -->|否| next
+  inside -->|是| exists{"文件存在？"}
+  exists -->|否| next
+  exists -->|是| add["把文件加入 include 图"]
+  next -->|"没有剩余候选"| report["在 include 行报告 sym/undefined"]
+```
+
+解析不到任何文件的 `include` 会在该 `include` 行产生 `sym/undefined` 诊断。
+
+### 工作区根目录 (workspace root) 之外的 include [#external-includes]
+
+birdcc 与语言服务器跳过位于工作区根目录之外的候选路径，并以 `sym/undefined` 报告 `[semantic/missing-include] Include skipped outside workspace root '<root>': '<path>'`。把 `crossFile.externalIncludes` 设为 `true` 可允许这些路径。
+
+| 工具与配置                       | 工作区根目录                                                                                                          |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `birdcc lint`                    | 所检查的文件含有 `include` 语句，或者探测没有选中入口文件时，为该文件所在目录。否则为探测选中入口文件时所扫描的目录。 |
+| 设置了 `workspaces` 的语言服务器 | 匹配到的工作区目录。                                                                                                  |
+| 使用其他配置的语言服务器         | 配置文件所在目录。                                                                                                    |
+| 没有配置文件的语言服务器         | 包含该文档的工作区文件夹；没有工作区文件夹包含该文档时，为文档所在目录。                                              |
+
+因此，位于工作区根目录之外的 `includePaths` 条目需要 `externalIncludes`。两个例子：
+
+- `"workspaces": ["sites/*"]` 配合 `"includePaths": ["./shared"]`：`shared/` 位于每个工作区目录之外。
+- `"main": "configs/main.conf"` 配合 `"includePaths": ["./filters"]`：`main.conf` 含有 `include` 语句时，`birdcc lint` 以 `configs/` 为工作区根目录，`filters/` 位于其外。
+
+## 分析上限 (analysis limits) [#limits]
+
+`crossFile` 中的键限制一次分析的 include 图：
+
+| 键                           | 默认值            | 范围      | 限制对象                              |
+| ---------------------------- | ----------------- | --------- | ------------------------------------- |
+| `crossFile.maxDepth`         | 16                | 1 到 64   | `include` 语句的嵌套深度。            |
+| `crossFile.maxFiles`         | 256               | 1 到 1024 | include 图中的文件数量。              |
+| `crossFile.maxDocumentBytes` | 2097152 (2 MiB)   | 1 及以上  | 单个文件的 UTF-8 字节数。             |
+| `crossFile.maxTotalBytes`    | 16777216 (16 MiB) | 1 及以上  | include 图中全部文件的 UTF-8 字节数。 |
+
+- birdcc 与语言服务器跳过超出上限的 include 文件，并报告 `sym/undefined`。
+- 这些工具对每个文件只分析一次，所以循环 include 在达到 `maxDepth` 之前就会停止。
+- 所检查的文件大于 `maxDocumentBytes` 或 `maxTotalBytes` 时，`birdcc lint` 失败，退出码为 1，并输出 `Analysis size limit (<n> bytes) exceeded: '<uri>'`。
+- `--include-max-depth` 与 `--include-max-files` 在单次 `birdcc lint` 运行中覆盖 `maxDepth` 与 `maxFiles`。
+- 语言服务器不分析超出大小上限的打开文档，改为报告 `analysis/size-limit`。见[语言服务器上限](../editors/language-server.mdx#limits)。
+- 语言服务器的设置 `performance.maxFileSizeBytes`（VS Code 中为 `bird2-lsp.performance.maxFileSizeBytes`）同样限制文档大小。
+
+## 示例：一个仓库中的多台路由器 [#monorepo]
+
+这个仓库存放两台路由器的配置和一个共用的过滤器文件：
+
+<Files>
+  <Folder name="routers" defaultOpen>
+    <File name="bird.config.json" />
+    <Folder name="shared" defaultOpen>
+      <Folder name="filters" defaultOpen>
+        <File name="bogons.conf" />
+      </Folder>
+    </Folder>
+    <Folder name="sites" defaultOpen>
+      <Folder name="fra" defaultOpen>
+        <File name="bird.conf" />
+      </Folder>
+      <Folder name="hkg" defaultOpen>
+        <File name="bird.conf" />
+      </Folder>
+    </Folder>
+  </Folder>
+</Files>
+
+```json title="bird.config.json"
+{
+  "$schema": "https://raw.githubusercontent.com/bird-chinese-community/BIRD-LSP/main/schemas/bird.config.schema.json",
+  "workspaces": ["sites/*"],
+  "includePaths": ["./shared"],
+  "crossFile": {
+    "externalIncludes": true
+  }
+}
+```
+
+```bird2 title="sites/hkg/bird.conf"
+router id 192.0.2.1;
+include "filters/bogons.conf";
+
+protocol device {
+}
+
+protocol bgp transit {
+  local as 64500;
+  neighbor 192.0.2.2 as 64501;
+  ipv4 {
+    import filter reject_bogons;
+    export none;
+  };
+}
+```
+
+```bird2 title="shared/filters/bogons.conf"
+filter reject_bogons {
+  if net ~ [ 10.0.0.0/8+, 192.168.0.0/16+ ] then reject;
+  accept;
+}
+```
+
+- `sites/` 下的每个目录是一个工作区，其中的 `bird.conf` 是入口文件。
+- `include "filters/bogons.conf";` 经由 `includePaths` 解析为 `shared/filters/bogons.conf`。
+- `shared/` 位于各工作区目录之外，所以配置设置了 `externalIncludes`。不设置时，每个 `bird.conf` 都会为这条 `include` 报告 `sym/undefined`，并为 `reject_bogons` 报告 `sym/filter-required`。
+
+在仓库根目录运行：
+
+```sh
+birdcc lint
+birdcc fmt sites/hkg/bird.conf --check
+```
+
+`birdcc lint` 检查 `sites/fra/bird.conf` 与 `sites/hkg/bird.conf`。
+
+在编辑器中，`sites/hkg/` 下的文档以 `sites/hkg/bird.conf` 为入口文件，语言服务器显示 `Using bird.config.json (workspace mode) for cross-file analysis.`

@@ -1,0 +1,5 @@
+{
+  "title": "格式化",
+  "icon": "Paintbrush",
+  "pages": ["usage", "dprint"]
+}

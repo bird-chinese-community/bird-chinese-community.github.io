@@ -3,18 +3,16 @@
   "pages": [
     "index",
     "getting-started",
-    "---指南---",
-    "...editors",
+    "editors",
     "linting",
     "formatting",
-    "project-configuration",
+    "configuration",
     "ci",
-    "asn-data",
-    "---参考---",
-    "...reference",
-    "---项目---",
-    "architecture",
+    "cli",
     "faq",
+    "---开发---",
+    "architecture",
+    "packages",
     "contributing"
   ]
 }

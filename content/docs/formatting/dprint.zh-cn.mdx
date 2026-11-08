@@ -1,0 +1,83 @@
+---
+title: dprint 插件
+description: 用 dprint CLI 与 @birdcc/dprint-plugin-bird 格式化 BIRD 配置文件，以及插件的选项。
+---
+
+dprint CLI 可以直接加载 `@birdcc/dprint-plugin-bird`，适用于已经用 dprint 格式化其他文件的仓库。
+
+`npm:` 插件写法和叠加生效的 `associations` 需要 dprint 0.55.0 或更新版本。以下示例已在 dprint 0.64.3 上测试。
+
+## 配置插件 [#setup]
+
+<Steps>
+
+<Step>
+
+### 安装 dprint 与插件
+
+```sh
+npm install --save-dev dprint @birdcc/dprint-plugin-bird
+```
+
+</Step>
+
+<Step>
+
+### 在 dprint.json 中添加插件
+
+```json title="dprint.json"
+{
+  "birdcc": {
+    "lineWidth": 100,
+    "indentWidth": 2,
+    "useTabs": false,
+    "safeMode": true
+  },
+  "plugins": ["npm:@birdcc/dprint-plugin-bird/dist/dprint-plugin-bird.wasm"]
+}
+```
+
+不带版本号的 `npm:` 写法从 `node_modules` 加载这个包。dprint 从 `dprint.json` 所在目录开始向上查找。
+
+</Step>
+
+<Step>
+
+### 检查并格式化文件
+
+```sh
+npx dprint check
+npx dprint fmt
+```
+
+`dprint check` 为每个需要格式化的文件输出差异 (diff)，并以非零退出码结束（dprint 0.64.3 为 20）。`dprint fmt` 写入文件。
+
+</Step>
+
+</Steps>
+
+## 插件选项 [#options]
+
+插件选项写在 `dprint.json` 的 `birdcc` 对象中。dprint 不读取 `bird.config.json`。
+
+| 键            | 默认值                                        | 说明                                                                           |
+| ------------- | --------------------------------------------- | ------------------------------------------------------------------------------ |
+| `lineWidth`   | dprint 配置中的 `lineWidth`，未设置时为 80    | 长度超过此值的表达式行还会保留注释前原有的空格。插件从不折行。                 |
+| `indentWidth` | dprint 配置中的 `indentWidth`，未设置时为 2   | 每级缩进的空格数。`bird.config.json` 中对应的键是 `indentSize`。               |
+| `useTabs`     | dprint 配置中的 `useTabs`，未设置时为 `false` | 每级缩进使用一个制表符。                                                       |
+| `safeMode`    | `true`                                        | 运行插件内部的检查。`@birdcc/formatter` 基于 `@birdcc/parser` 的比较不会运行。 |
+
+- `birdcc` 对象中出现未知的键时，dprint 报告 `Unknown property in configuration` 并停止。JSON schema 见 [`schemas/dprint-plugin-bird.schema.json`](https://github.com/bird-chinese-community/BIRD-LSP/blob/main/schemas/dprint-plugin-bird.schema.json)。
+- 插件格式化所有扩展名为 `.conf` 或 `.bird` 的文件。要排除其他 `.conf` 文件或加入更多文件名，设置 `associations`：
+
+  ```json title="dprint.json"
+  {
+    "birdcc": {
+      "associations": ["!**/nginx.conf", "**/*.bird3"]
+    }
+  }
+  ```
+
+- 另外两种插件写法加载同一个模块：
+  - 文件路径：`"./node_modules/@birdcc/dprint-plugin-bird/dist/dprint-plugin-bird.wasm"`
+  - 由 dprint 从 npm registry 下载的固定版本：`"npm:@birdcc/dprint-plugin-bird@1.0.0/dist/dprint-plugin-bird.wasm"`

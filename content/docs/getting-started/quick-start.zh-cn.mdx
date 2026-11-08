@@ -1,0 +1,98 @@
+---
+title: 快速上手
+description: 用 birdcc lint 检查一个配置文件，并用 birdcc init 生成 bird.config.json。
+---
+
+下面的步骤需要 `birdcc` 命令，[安装](./installation.mdx#cli)说明了安装方法。
+
+## 步骤 [#steps]
+
+<Steps>
+
+<Step>
+
+### 检查一个配置文件
+
+下面的配置引用了一个没有定义的 filter：
+
+```bird2 title="bird.conf"
+router id 192.0.2.1;
+
+protocol device {
+}
+
+protocol bgp upstream {
+  local as 65001;
+  neighbor 192.0.2.2 as 65002;
+  ipv4 {
+    import filter peer_in;
+    export none;
+  };
+}
+```
+
+在文件所在的目录中运行检查：
+
+```sh
+birdcc lint bird.conf
+```
+
+```text
+WARNING sym/filter-required [file:///srv/bird/bird.conf] 10:19 Protocol 'upstream' references unknown filter 'peer_in'
+```
+
+每行依次是级别 (severity)、规则代码 (rule code)、文件 URI、行号与列号，以及诊断信息 (message)。
+
+默认情况下，`sym`、`cfg`、`net` 和 `type` 规则报告 warning，`bgp` 和 `ospf` 规则报告 info，所以这次运行的退出码为 0。出现 `error` 级别的诊断 (diagnostic) 或命令本身失败时，`birdcc lint` 的退出码为 1。[Lint 检查](../linting/usage.mdx)说明了如何提高规则级别，让 lint 在 CI 任务中失败。
+
+`birdcc lint` 会跟随文件中的 `include` 语句。加上 `--bird` 可以同时对文件运行 `bird -p`。
+
+</Step>
+
+<Step>
+
+### 生成 bird.config.json
+
+先运行 `birdcc init --dry-run`，查看候选文件和将要写出的内容，这条命令不写入文件。然后写出文件：
+
+```sh
+birdcc init --write
+```
+
+```text
+Created bird.config.json
+  Entry: bird.conf (single, confidence: 100%)
+```
+
+```json title="bird.config.json"
+{
+  "$schema": "https://raw.githubusercontent.com/bird-chinese-community/BIRD-LSP/main/schemas/bird.config.schema.json",
+  "main": "./bird.conf",
+  "formatter": {
+    "indentSize": 2
+  }
+}
+```
+
+`birdcc init` 扫描当前目录下的 `.conf` 文件，把探测到的入口文件 (entry file) 写成 `main`。找到多个互相独立的入口文件时，它改为写出 `workspaces`。入口文件使用 2、4 或 8 个空格缩进时，它还会写出 `formatter.indentSize`。
+
+不带文件参数时，`birdcc lint` 检查 `main` 指定的入口文件及其 include 图 (include graph)，`birdcc fmt` 检查 `main` 文件的格式：
+
+```sh
+birdcc lint
+birdcc fmt
+```
+
+语言服务器读取同一个文件。[项目配置 (project configuration)](../configuration/entries-and-includes.mdx)说明了各个配置项、入口文件探测和 include 路径解析。
+
+</Step>
+
+</Steps>
+
+## 后续步骤
+
+- [VS Code](../editors/vscode.mdx)：BIRD2 LSP 的设置、命令、代码片段 (snippet) 和回退校验 (fallback validation)。
+- [Lint 检查](../linting/usage.mdx)：规则、级别和 `bird -p` 检查。
+- [格式化](../formatting/usage.mdx)：`birdcc fmt`、格式化引擎和安全模式 (safe mode)。
+- [CI](../ci/github-actions.mdx)：用 setup-birdcc 在 GitHub Actions 中做 lint 检查和格式检查。
+- [CLI 参考](../cli.mdx)：`birdcc` 的全部选项。

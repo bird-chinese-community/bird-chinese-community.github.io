@@ -165,7 +165,7 @@ pnpm run format     # oxfmt
 
 - 每个页面对应 `content/docs/` 下的两个文件：英文的 `<name>.mdx` 和简体中文的 `<name>.zh-cn.mdx`。两个文件的章节相同，顺序也相同。
 - `meta.json` 文件设置侧边栏 (sidebar) 的页面顺序和分组标题。
-- 链接到其他页面时使用源文件路径，例如 `[CLI](./reference/cli.mdx)`。构建过程把链接改写为与当前页面同语言的页面 URL；目标文件不存在时，构建失败。
+- 链接到其他页面时使用源文件路径，例如 `[CLI](./cli.mdx)`。构建过程把链接改写为与当前页面同语言的页面 URL；目标文件不存在时，构建失败。
 - `design.md` 记录本站的展示规则。
 - 构建会读取每个页面的 Git 历史来生成贡献者列表，因此必须在至少有一个提交的克隆中运行。
 - `.github/workflows/pages.yml` 在每次推送和每个拉取请求上检查格式、运行 oxlint 并构建站点。推送到 `main` 时，构建结果部署到 GitHub Pages。

@@ -1,0 +1,24 @@
+---
+title: JetBrains IDE
+description: 在 JetBrains IDE 中加载 BIRD 的 TextMate 语法，并用 LSP 客户端插件连接 birdcc 语言服务器。
+---
+
+JetBrains IDE 从 BIRD 的 TextMate 语法获得语法高亮，通过 LSP 客户端插件从 birdcc 语言服务器 (language server) 获得语言功能。
+
+## TextMate 语法 [#textmate-grammar]
+
+[BIRD-tm-language-grammar](https://github.com/bird-chinese-community/BIRD-tm-language-grammar) 包含 TextMate 语法 (TextMate grammar) 文件 `grammars/bird2.tmLanguage.json`，scope 为 `source.bird2`。[发布页](https://github.com/bird-chinese-community/BIRD-tm-language-grammar/releases)中每个标签为 `tm-v<version>` 的发布都附带这个文件。能加载 JSON 格式 TextMate 语法的编辑器和高亮工具可以直接使用它。
+
+## 加载语法 [#textmate-bundles]
+
+JetBrains IDE 通过 TextMate Bundles 加载这份语法，所用的 bundle 是 VS Code 扩展 BIRD2 Configuration：
+
+1. 从 Open VSX 下载 [BIRDCC/vscode-bird2-conf](https://open-vsx.org/extension/BIRDCC/vscode-bird2-conf) 最新的 `.vsix` 文件。
+2. 用 ZIP 工具解压 `.vsix` 文件，记下含有 `package.json` 的目录。
+3. 在 IDE 中打开 **设置 (Settings)** > **编辑器 (Editor)** > **TextMate Bundles**。
+4. 选择 **+** (Add)，然后选择第 2 步中的目录。
+5. 确认列表中有 `bird2` 且已勾选，然后重启 IDE。
+
+## 连接语言服务器 [#language-server]
+
+安装一个支持自定义语言服务器的 LSP 客户端插件，例如 LSP4IJ，并按[其他 LSP 客户端](./helix.mdx#other-lsp-clients)中的值配置它。[安装](../getting-started/installation.mdx#cli)说明如何安装 `birdcc`。
