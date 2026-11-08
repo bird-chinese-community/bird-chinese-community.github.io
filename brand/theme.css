@@ -1,0 +1,41 @@
+/* BIRDCC brand palette and type stacks. app/tokens.css maps these values to the Fumadocs tokens
+   of the docs site. The brand is ink on paper; the teal brand color appears in the mark. */
+:root {
+  --cc-primary: #0f1a1b;
+  --cc-primary-foreground: #ffffff;
+  --cc-primary-tint: rgb(15 26 27 / 0.07);
+  /* The brand color of the BIRDCC mark. */
+  --cc-brand: #16695c;
+  --cc-danger: #b3261e;
+  --cc-success: #1d7a4c;
+  --cc-warning: #8a5300;
+  --cc-canvas: #f3f6f6;
+  --cc-surface: #ffffff;
+  --cc-ink: #0f1a1b;
+  --cc-ink-secondary: #465556;
+  --cc-hairline: rgb(15 26 27 / 0.09);
+  --cc-control: rgb(15 26 27 / 0.14);
+  --cc-shadow-float: 0 12px 32px rgb(15 26 27 / 0.14), 0 2px 6px rgb(15 26 27 / 0.06);
+  --cc-font-sans:
+    system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB",
+    "Microsoft YaHei", "Noto Sans SC", "Helvetica Neue", Arial, sans-serif;
+  --cc-font-mono:
+    ui-monospace, "SF Mono", SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+}
+
+.dark {
+  --cc-primary: #e3ebea;
+  --cc-primary-foreground: #0f1a1b;
+  --cc-primary-tint: rgb(227 235 234 / 0.12);
+  --cc-brand: #5cc6b0;
+  --cc-danger: #ff8f6b;
+  --cc-success: #5fd39a;
+  --cc-warning: #ffc453;
+  --cc-canvas: #0a0f10;
+  --cc-surface: #121a1b;
+  --cc-ink: #e3ebea;
+  --cc-ink-secondary: #a2b2b1;
+  --cc-hairline: rgb(255 255 255 / 0.08);
+  --cc-control: rgb(255 255 255 / 0.14);
+  --cc-shadow-float: 0 12px 32px rgb(0 0 0 / 0.45), 0 2px 6px rgb(0 0 0 / 0.3);
+}

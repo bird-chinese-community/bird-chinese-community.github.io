@@ -1,0 +1,63 @@
+{
+  "name": "bird-chinese-community.github.io",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Documentation site of the BIRD Chinese Community tools.",
+  "homepage": "https://bird-chinese-community.github.io",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bird-chinese-community/bird-chinese-community.github.io.git"
+  },
+  "type": "module",
+  "scripts": {
+    "dev": "next dev --turbopack --port 3885",
+    "build": "next build",
+    "check": "oxlint --type-aware --type-check --deny-warnings --format=agent",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check",
+    "postinstall": "fumadocs-mdx",
+    "typegen": "fumadocs-mdx"
+  },
+  "dependencies": {
+    "@base-ui/react": "^1.9.0",
+    "@fontsource-variable/noto-sans-sc": "^5.3.1",
+    "@fumadocs/language": "^0.2.18",
+    "@sankyu/react-circle-flags": "1.6.9",
+    "fumadocs-core": "16.17.8",
+    "fumadocs-extras": "^0.1.1",
+    "fumadocs-mdx": "15.4.10",
+    "fumadocs-page-history": "^0.4.2",
+    "fumadocs-ui": "npm:@fumadocs/base-ui@16.17.8",
+    "lucide-react": "^1.66.0",
+    "mermaid": "11.17.2",
+    "next": "^16.4.4",
+    "next-themes": "^0.4.6",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/hast": "^3.0.5",
+    "@types/mdast": "^4.0.4",
+    "@types/mdx": "^2.0.14",
+    "@types/node": "24.19.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "mdast-util-mdx-jsx": "^3.2.0",
+    "mdast-util-to-hast": "^13.2.1",
+    "oxfmt": "0.75.0",
+    "oxlint": "1.90.0",
+    "oxlint-tsgolint": "7.0.2005",
+    "postcss": "^8.5.32",
+    "tailwindcss": "^4.3.3",
+    "takumi-js": "^2.19.0",
+    "typescript": "7.0.2",
+    "unist-util-visit": "^5.2.0",
+    "vfile": "^6.0.3"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "packageManager": "pnpm@11.28.5"
+}

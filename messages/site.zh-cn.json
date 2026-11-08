@@ -1,0 +1,20 @@
+{
+  "byline": "文档",
+  "description": "BIRD 2 与 BIRD 3 配置文件的编辑器支持、语言服务器、Linter、格式化工具和 CI 工具。",
+  "repository": "GitHub 组织：bird-chinese-community",
+  "language": "语言",
+  "languageCurrent": "语言：{language}",
+  "theme": "主题",
+  "themeCurrent": "主题：{theme}",
+  "themeLight": "浅色",
+  "themeDark": "深色",
+  "themeSystem": "跟随系统",
+  "pages": "目录",
+  "notFoundTitle": "找不到页面",
+  "notFoundBody": "链接已经过时，或是页面换了位置。",
+  "backToDocs": "前往文档首页",
+  "chooseLanguage": "选择语言",
+  "codeBlock": "代码 {index}",
+  "codeBlockTitled": "代码 {index}：{title}",
+  "diagram": "图 {index}"
+}

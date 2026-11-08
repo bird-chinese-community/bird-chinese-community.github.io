@@ -1,0 +1,4 @@
+allowBuilds:
+  esbuild: false
+# Scripts run against the installed tree; `pnpm install` is the explicit step.
+verifyDepsBeforeRun: false

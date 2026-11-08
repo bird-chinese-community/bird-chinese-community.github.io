@@ -1,0 +1,14 @@
+node_modules/
+.pnpm-store/
+*.log
+.DS_Store
+
+# Build output
+.next/
+out/
+.source/
+next-env.d.ts
+tsconfig.tsbuildinfo
+
+# Local working notes and scratch output
+.tmp/

@@ -1,0 +1,20 @@
+{
+  "byline": "Docs",
+  "description": "Editor support, a language server, a linter, a formatter and CI tools for BIRD 2 and BIRD 3 configuration files.",
+  "repository": "GitHub organization: bird-chinese-community",
+  "language": "Language",
+  "languageCurrent": "Language: {language}",
+  "theme": "Theme",
+  "themeCurrent": "Theme: {theme}",
+  "themeLight": "Light",
+  "themeDark": "Dark",
+  "themeSystem": "System",
+  "pages": "Pages",
+  "notFoundTitle": "Page not found",
+  "notFoundBody": "The link is out of date, or the page has moved.",
+  "backToDocs": "Go to the docs",
+  "chooseLanguage": "Choose a language",
+  "codeBlock": "Code {index}",
+  "codeBlockTitled": "Code {index}: {title}",
+  "diagram": "Diagram {index}"
+}
