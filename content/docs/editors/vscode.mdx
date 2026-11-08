@@ -92,7 +92,13 @@ Most features come from the language server. The [language server reference](../
 | Snippets              | 40 snippets; see [Snippets](#snippets).                                                                                                                                                                                                                                                                                                                      |
 | Fallback validation   | Runs `bird -p` on saved files when the language server is off or failed; see [Fallback validation](#fallback-validation).                                                                                                                                                                                                                                    |
 
-The extension host registers its own providers for Format Document, Format Selection, function return-type hover and inlay hints, and keyword hover while the language server is not running for a file. It also runs fallback validation and the status bar item.
+The extension host registers its own providers for these features:
+
+- Format Document and Format Selection
+- function return-type hover and inlay hints
+- keyword hover, while the language server is not running for a file
+
+The extension host also runs fallback validation and the status bar item.
 
 ## Settings [#settings]
 
@@ -105,7 +111,7 @@ All settings are in the `bird2-lsp` section:
 | `bird2-lsp.trace.server`                 | `string`               | `"off"`                                                  | Protocol tracing in the `BIRD2 LSP` output channel: `off`, `messages` or `verbose`.                                                                                                                          |
 | `bird2-lsp.hiddenErrors`                 | `string[]`             | `["textDocument/definition", "textDocument/references"]` | LSP request methods whose failures do not show a notification.                                                                                                                                               |
 | `bird2-lsp.validation.enabled`           | `boolean`              | `true`                                                   | Allow fallback validation.                                                                                                                                                                                   |
-| `bird2-lsp.validation.command`           | `string`               | `"bird -p -c {file}"`                                    | Fallback validation command. `{file}` is replaced with the path of the saved file.                                                                                                                           |
+| `bird2-lsp.validation.command`           | `string`               | `"bird -p -c {file}"`                                    | Fallback validation command. The extension replaces `{file}` with the path of the saved file.                                                                                                                |
 | `bird2-lsp.validation.onSave`            | `boolean`              | `true`                                                   | Run fallback validation when a file is saved.                                                                                                                                                                |
 | `bird2-lsp.validation.timeout`           | `number`               | `30000`                                                  | Fallback validation timeout in milliseconds, 1000 to 120000.                                                                                                                                                 |
 | `bird2-lsp.performance.maxFileSizeBytes` | `number`               | `2097152`                                                | File size limit in bytes, 65536 to 104857600. Larger files get no formatting, type hints, keyword hover or fallback validation from the extension, and the language server does not analyze them.            |
@@ -120,7 +126,15 @@ All settings are in the `bird2-lsp` section:
 | `bird2-lsp.intel.completion`             | `boolean`              | `true`                                                   | ASN completion.                                                                                                                                                                                              |
 | `bird2-lsp.intel.hover`                  | `boolean`              | `true`                                                   | ASN details on hover.                                                                                                                                                                                        |
 
-Changing `serverPath` or `trace.server` restarts the language server, and changing `enabled` starts or stops it. `serverPath`, `trace.server` and `validation.command` have `machine-overridable` scope, `performance.startupTimeoutMs` has `window` scope, and the other settings have `resource` scope, so they can differ per workspace folder. For the `bird2` language, the extension sets `editor.defaultFormatter` to `birdcc.bird2-lsp`.
+Changing `serverPath` or `trace.server` restarts the language server, and changing `enabled` starts or stops it.
+
+The settings have these scopes:
+
+- `machine-overridable`: `serverPath`, `trace.server` and `validation.command`
+- `window`: `performance.startupTimeoutMs`
+- `resource`: all other settings, so they can differ per workspace folder
+
+For the `bird2` language, the extension sets `editor.defaultFormatter` to `birdcc.bird2-lsp`.
 
 For example, to run a BIRD binary outside `PATH` and turn off ASN inlay hints:
 
@@ -170,9 +184,11 @@ Fallback validation runs `bird2-lsp.validation.command` on saved files and shows
 - The language server did not start within `bird2-lsp.performance.startupTimeoutMs` or stopped with an error.
 - **BIRD2: Validate Active Document** runs it on demand, also while the language server is running.
 
-In the first two cases, the active file is validated when fallback validation starts. Other files are validated 800 ms after they are opened. While `bird2-lsp.validation.onSave` is `true`, files are also validated 800 ms after each save. Editing a file clears its fallback diagnostics until the next save.
+In the first two cases, fallback validation checks the active file when it starts. It checks other files 800 ms after they open, and also 800 ms after each save while `bird2-lsp.validation.onSave` is `true`.
 
-Validation runs only when all of these conditions are met:
+Editing a file clears its fallback diagnostics until the next save.
+
+Validation runs only when all of these conditions hold:
 
 - `bird2-lsp.validation.enabled` is `true`.
 - The workspace is trusted.
@@ -182,13 +198,13 @@ Validation runs only when all of these conditions are met:
 - The file meets one of the conditions in [File association](#file-association).
 - On macOS and Linux, the file is not writable by all users.
 
-The extension checks the command template before it runs it:
+The extension checks the command template before it runs it, and rejects the template in these cases:
 
-- The template must contain `{file}` as a separate argument: `bird -p -c {file}` is accepted, `bird -p --config={file}` is rejected.
-- The shell metacharacters `;`, `&`, `|`, `` ` ``, `$`, `<` and `>` are rejected.
-- Environment variable expansion (`${env:NAME}`, `%NAME%`) is rejected.
-- Arguments that contain NUL, carriage return or line feed characters are rejected.
-- The first word must not be a shell (`bash`, `sh`, `zsh`, `fish`, `cmd`, `powershell`, `pwsh`).
+- `{file}` is missing or is not a separate argument. `bird -p -c {file}` passes, `bird -p --config={file}` does not.
+- The template contains one of the shell metacharacters `;`, `&`, `|`, `` ` ``, `$`, `<` and `>`.
+- The template contains environment variable expansion (`${env:NAME}`, `%NAME%`).
+- An argument contains NUL, carriage return or line feed characters.
+- The first word is a shell (`bash`, `sh`, `zsh`, `fish`, `cmd`, `powershell`, `pwsh`).
 
 The extension runs the command without a shell and stops it after `bird2-lsp.validation.timeout` milliseconds. A command other than `bird -p -c {file}` runs only after you confirm it in a dialog, once per session. `bird.validateCommand` in `bird.config.json` configures the `bird -p` check of `birdcc lint`; the extension does not read it.
 
@@ -207,8 +223,19 @@ The status bar item shows the state of the language server. Select it to run the
 
 ## Project configuration
 
-The language server reads `bird.config.json`, found by walking up from each file, and applies `main`, `workspaces`, `includePaths`, `crossFile`, `linter.enabled`, `linter.rules` and `formatter`. `birdcc.config.json` is read as an alias. Without a project file, the server detects an entry file in the workspace folder and analyzes the `include` graph from it. A notification names the detected entry, for example `Auto-detected BIRD entry: bird.conf (100% confidence).` When the server finds several entry files or only a low-confidence candidate, the notification suggests running `birdcc init`. [Project configuration](../project-configuration.mdx) describes the file and [entry detection](../project-configuration.mdx#entry-detection).
+The language server searches upward from the directory of each file for `bird.config.json` and applies `main`, `workspaces`, `includePaths`, `crossFile`, `linter.enabled`, `linter.rules` and `formatter`. It also reads `birdcc.config.json` as an alias.
+
+Without a project file, the server detects an entry file in the workspace folder and analyzes the `include` graph from it. A notification names the detected entry, for example `Auto-detected BIRD entry: bird.conf (100% confidence).` When the server finds several entry files or only a low-confidence candidate, the notification suggests running `birdcc init`.
+
+[Project configuration](../project-configuration.mdx) describes the file and [entry detection](../project-configuration.mdx#entry-detection).
 
 ## Logs and problems
 
-**BIRD2: Show Output Channel** opens the `BIRD2 LSP` output channel with the extension log. Set `bird2-lsp.trace.server` to `messages` or `verbose` to add the LSP messages. Error notifications of the extension have two actions: **Open FAQ** opens the matching entry of [docs/faq.md](https://github.com/bird-chinese-community/BIRD-LSP/blob/main/docs/faq.md) in the BIRD-LSP repository, and **Report Issue** opens the issue tracker. When you [report a bug](https://github.com/bird-chinese-community/BIRD-LSP/issues/new?template=bug-report.yml), include the extension version and the output channel log. The [FAQ](../faq.mdx) of this site lists known problems.
+**BIRD2: Show Output Channel** opens the `BIRD2 LSP` output channel with the extension log. Set `bird2-lsp.trace.server` to `messages` or `verbose` to add the LSP messages.
+
+Error notifications of the extension have two actions:
+
+- **Open FAQ** opens the matching entry of [docs/faq.md](https://github.com/bird-chinese-community/BIRD-LSP/blob/main/docs/faq.md) in the BIRD-LSP repository.
+- **Report Issue** opens the issue tracker.
+
+When you [report a bug](https://github.com/bird-chinese-community/BIRD-LSP/issues/new?template=bug-report.yml), include the extension version and the output channel log. The [FAQ](../faq.mdx) of this site lists known problems.

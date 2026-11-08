@@ -4,7 +4,7 @@ description: 在 Neovim、Vim、Helix、JetBrains IDE 和其他 LSP 客户端中
 icon: Terminal
 ---
 
-VS Code 以外的编辑器通过 `@birdcc/cli` 启动的语言服务器（`birdcc lsp --stdio`）获得语言功能。语法高亮和文件类型识别由单独的插件提供。
+VS Code 以外的编辑器从语言服务器 (language server) 获得语言功能，`@birdcc/cli` 用 `birdcc lsp --stdio` 启动这个服务器。语法高亮和文件类型识别 (filetype detection) 来自单独的插件。
 
 | 编辑器          | 语法高亮与文件类型                                            | 语言服务器                                                                                  |
 | --------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
@@ -20,7 +20,9 @@ VS Code 以外的编辑器通过 `@birdcc/cli` 启动的语言服务器（`birdc
 npm install --global @birdcc/cli
 ```
 
-`birdcc` 需要 Node.js 22 或更新版本。编辑器会运行 `birdcc lsp --stdio`，所以 `birdcc` 必须位于编辑器进程的 `PATH` 中，否则请使用命令的绝对路径。[语言服务器](../reference/language-server.mdx)列出了服务器的能力和设置。
+`birdcc` 需要 Node.js 22 或更新版本。编辑器会运行 `birdcc lsp --stdio`，所以 `birdcc` 必须位于编辑器进程的 `PATH` 中，否则请使用命令的绝对路径。
+
+[语言服务器](../reference/language-server.mdx)列出了服务器的能力和设置。
 
 ## Neovim [#neovim]
 
@@ -37,7 +39,7 @@ npm install --global @birdcc/cli
 }
 ```
 
-请保留 `lazy = false`：插件必须在文件类型识别之前加载。也可以用原生包管理，把仓库克隆到 `start` 目录：
+请保留 `lazy = false`：插件必须在文件类型识别之前加载。也可以改用原生包 (native package)，把仓库克隆到 `start` 目录：
 
 ```sh
 git clone https://github.com/bird-chinese-community/BIRD.nvim \
@@ -66,7 +68,9 @@ vim.lsp.config("birdcc", {
 vim.lsp.enable("birdcc")
 ```
 
-nvim-lspconfig 中没有 `birdcc` 的配置，所以无论是否安装 nvim-lspconfig，都需要上面这段定义。Neovim 用 `settings` 回应服务器发出的 `workspace/configuration` 请求，`bird2-lsp` 下的键见[语言服务器设置](../reference/language-server.mdx#settings)。例如，关闭 ASN 悬停提示：
+nvim-lspconfig 中没有 `birdcc` 的配置，所以无论是否安装 nvim-lspconfig，都需要上面这段定义。
+
+Neovim 用 `settings` 回应服务器发出的 `workspace/configuration` 请求。[语言服务器设置](../reference/language-server.mdx#settings)列出了 `bird2-lsp` 下的键。例如，关闭 ASN 悬停提示 (hover)：
 
 ```lua title="init.lua"
 vim.lsp.config("birdcc", {
@@ -89,7 +93,7 @@ vim.filetype.add({
 
 ## Vim [#vim]
 
-[BIRD.vim](https://github.com/bird-chinese-community/BIRD.vim) 为 `bird2` 文件类型提供语法高亮、文件类型识别和文件类型插件，文件类型识别规则与 BIRD.nvim 相同。用 vim-plug 安装：
+[BIRD.vim](https://github.com/bird-chinese-community/BIRD.vim) 为 `bird2` 文件类型提供语法高亮、文件类型识别和文件类型插件 (filetype plugin)，文件类型识别规则与 BIRD.nvim 相同。用 vim-plug 安装：
 
 ```vim
 Plug 'bird-chinese-community/BIRD.vim'
@@ -161,11 +165,17 @@ Helix 没有 BIRD 的语法，所以这份配置只提供语言功能，没有�
 | 根目录标记 | `bird.config.json`、`birdcc.config.json`。                                                                                                      |
 | 设置       | `initializationOptions.birdcc`，或 `workspace/configuration` 的 `bird2-lsp` 节。见[语言服务器设置](../reference/language-server.mdx#settings)。 |
 
-服务器分析的文件与 VS Code 扩展相同：`main` 指向的文件、名为 `bird.conf`、`bird2.conf`、`bird3.conf` 或 `bird6.conf` 的文件，以及含有 BIRD 声明的文件。具体条件见[文件关联](./vscode.mdx#file-association)。
+服务器分析的文件与 VS Code 扩展相同：
+
+- `main` 指向的文件
+- 名为 `bird.conf`、`bird2.conf`、`bird3.conf` 或 `bird6.conf` 的文件
+- 含有 BIRD 声明的文件
+
+具体条件见[文件关联](./vscode.mdx#file-association)。
 
 ## TextMate 语法 [#textmate-grammar]
 
-[BIRD-tm-language-grammar](https://github.com/bird-chinese-community/BIRD-tm-language-grammar) 包含 TextMate 语法文件 `grammars/bird2.tmLanguage.json`，scope 为 `source.bird2`。[发布页](https://github.com/bird-chinese-community/BIRD-tm-language-grammar/releases)中每个标签为 `tm-v<version>` 的发布都附带这个文件。能加载 JSON 格式 TextMate 语法的编辑器和高亮工具可以直接使用它。
+[BIRD-tm-language-grammar](https://github.com/bird-chinese-community/BIRD-tm-language-grammar) 包含 TextMate 语法 (TextMate grammar) 文件 `grammars/bird2.tmLanguage.json`，scope 为 `source.bird2`。[发布页](https://github.com/bird-chinese-community/BIRD-tm-language-grammar/releases)中每个标签为 `tm-v<version>` 的发布都附带这个文件。能加载 JSON 格式 TextMate 语法的编辑器和高亮工具可以直接使用它。
 
 ### JetBrains IDE
 
@@ -173,10 +183,14 @@ JetBrains IDE 通过 TextMate Bundles 加载这份语法，所用的 bundle 是 
 
 1. 从 Open VSX 下载 [BIRDCC/vscode-bird2-conf](https://open-vsx.org/extension/BIRDCC/vscode-bird2-conf) 最新的 `.vsix` 文件。
 2. 用 ZIP 工具解压 `.vsix` 文件，记下含有 `package.json` 的目录。
-3. 在 IDE 中打开 **Settings** > **Editor** > **TextMate Bundles**。
-4. 选择 **+**（Add），然后选择第 2 步中的目录。
+3. 在 IDE 中打开 **设置 (Settings)** > **编辑器 (Editor)** > **TextMate Bundles**。
+4. 选择 **+** (Add)，然后选择第 2 步中的目录。
 5. 确认列表中有 `bird2` 且已勾选，然后重启 IDE。
 
 ## vscode-bird2 [#vscode-bird2]
 
-[vscode-bird2](https://github.com/bird-chinese-community/vscode-bird2) 是 VS Code 扩展 BIRD2 Configuration（`BIRDCC.vscode-bird2-conf`）的源码仓库。它包含这份 TextMate 语法，并为 `.conf`、`.bird`、`.bird2`、`.bird3`、`.bird2.conf` 和 `.bird3.conf` 文件注册 `bird2` 语言。它只提供语法高亮，不提供诊断、补全或格式化。它需要 VS Code 1.80 或更新版本，发布在 [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=BIRDCC.vscode-bird2-conf) 和 [Open VSX](https://open-vsx.org/extension/BIRDCC/vscode-bird2-conf)。BIRD2 Extension Pack 会把它与 BIRD2 LSP 一起安装，见 [VS Code](./vscode.mdx)。
+[vscode-bird2](https://github.com/bird-chinese-community/vscode-bird2) 是 VS Code 扩展 BIRD2 Configuration (`BIRDCC.vscode-bird2-conf`) 的源码仓库。它包含这份 TextMate 语法，并为 `.conf`、`.bird`、`.bird2`、`.bird3`、`.bird2.conf` 和 `.bird3.conf` 文件注册 `bird2` 语言。
+
+这个扩展只提供语法高亮，不提供诊断 (diagnostic)、补全 (completion) 或格式化。它需要 VS Code 1.80 或更新版本，发布在 [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=BIRDCC.vscode-bird2-conf) 和 [Open VSX](https://open-vsx.org/extension/BIRDCC/vscode-bird2-conf)。
+
+BIRD2 Extension Pack 会把它与 BIRD2 LSP 一起安装，见 [VS Code](./vscode.mdx)。

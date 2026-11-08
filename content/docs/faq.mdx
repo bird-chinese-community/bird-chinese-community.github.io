@@ -12,7 +12,7 @@ The error notifications of BIRD2 LSP have an **Open FAQ** action that opens [doc
 
 <Accordion title="Which BIRD versions does BIRD-LSP support?" id="bird-versions">
 
-The parser and the lint rules follow the syntax of BIRD 2 and BIRD 3. `bird.version` in `bird.config.json` is accepted, but it does not change parsing or the rules.
+The parser and the lint rules follow the syntax of BIRD 2 and BIRD 3. `bird.config.json` can contain `bird.version`, but the value does not change parsing or the rules.
 
 To check a BIRD 1.x configuration with BIRD itself, point the validation command at the BIRD 1.x binary. With `"enabled": false`, `birdcc lint` skips the static analysis and runs only the BIRD command:
 
@@ -30,19 +30,31 @@ Replace the path with the path of your BIRD 1.x binary. The language server also
 <Accordion title="Which editors are supported?" id="editors">
 
 - VS Code 1.100 or newer, and editors that install extensions from Open VSX: [BIRD2 LSP](./editors/vscode.mdx).
-- Neovim, Vim, Helix, JetBrains IDEs and other LSP clients: language features from `birdcc lsp --stdio`. Neovim gets syntax highlighting from BIRD.nvim, Vim from BIRD.vim, and JetBrains IDEs from the TextMate grammar. [Other editors](./editors/other-editors.mdx) has the setup for each editor.
+- Neovim, Vim, Helix, JetBrains IDEs and other LSP clients: language features from `birdcc lsp --stdio`.
+
+Syntax highlighting for the other editors comes from these projects:
+
+- Neovim: BIRD.nvim
+- Vim: BIRD.vim
+- JetBrains IDEs: the TextMate grammar
+
+[Other editors](./editors/other-editors.mdx) has the setup for each editor.
 
 </Accordion>
 
 <Accordion title="Does the ASN data send requests over the network?" id="asn-network">
 
-No. `@birdcc/intel` contains an ASN database file built from BGP.Tools OpenDB, and the language server reads this file. A weekly workflow in the BIRD-LSP repository refreshes the file, and new data arrives with a new release of `@birdcc/intel`. [ASN data](./asn-data.mdx) describes the database and the settings that turn the ASN features off.
+No. `@birdcc/intel` contains an ASN database file built from BGP.Tools OpenDB, and the language server reads this file.
+
+A weekly workflow in the BIRD-LSP repository refreshes the file, and new data arrives with a new release of `@birdcc/intel`. [ASN data](./asn-data.mdx) describes the database and the settings that turn the ASN features off.
 
 </Accordion>
 
 <Accordion title="Is BIRDCC part of the BIRD project?" id="affiliation">
 
-No. CZ.NIC Labs develops BIRD. The BIRD Chinese Community (BIRDCC) maintains BIRD-LSP and is not affiliated with CZ.NIC. BIRD-LSP is licensed under [GPL-3.0-only](https://github.com/bird-chinese-community/BIRD-LSP/blob/main/LICENSE).
+No. CZ.NIC Labs develops BIRD.
+
+The BIRD Chinese Community (BIRDCC) maintains BIRD-LSP and is not affiliated with CZ.NIC. The license of BIRD-LSP is [GPL-3.0-only](https://github.com/bird-chinese-community/BIRD-LSP/blob/main/LICENSE).
 
 </Accordion>
 
@@ -54,7 +66,9 @@ No. CZ.NIC Labs develops BIRD. The BIRD Chinese Community (BIRDCC) maintains BIR
 
 <Accordion title="Does BIRD2 LSP need Node.js or birdcc?" id="node-requirement">
 
-No. The extension contains the language server and starts it with the JavaScript runtime of VS Code. Fallback validation needs a BIRD 2 or BIRD 3 binary on the machine. The language server features do not use the BIRD binary.
+No. The extension contains the language server and starts it with the JavaScript runtime of VS Code.
+
+Fallback validation needs a BIRD 2 or BIRD 3 binary on the machine. The language server features do not use the BIRD binary.
 
 </Accordion>
 
@@ -66,11 +80,17 @@ The extension manifest does not declare support for untrusted workspaces. VS Cod
 
 <Accordion title="A .conf file gets no diagnostics or formatting" id="conf-files">
 
-Other software also uses `.conf`. The extension and the language server analyze a `.conf` file only when `main` in `bird.config.json` points to it, when its name is `bird.conf`, `bird2.conf`, `bird3.conf` or `bird6.conf`, or when the parser finds a BIRD declaration in it. [File association](./editors/vscode.mdx#file-association) lists the conditions. A file larger than `bird2-lsp.performance.maxFileSizeBytes` is also skipped; see the next entry.
+Other software also uses `.conf`. The extension and the language server analyze a `.conf` file only when one of these conditions holds:
+
+- `main` in `bird.config.json` points to the file.
+- The file name is `bird.conf`, `bird2.conf`, `bird3.conf` or `bird6.conf`.
+- The parser finds a BIRD declaration in the file.
+
+[File association](./editors/vscode.mdx#file-association) lists the conditions. The extension and the language server also skip a file larger than `bird2-lsp.performance.maxFileSizeBytes`; see the next entry.
 
 </Accordion>
 
-<Accordion title="A large file is skipped (file-too-large)" id="file-too-large">
+<Accordion title="BIRD2 LSP skips a large file (file-too-large)" id="file-too-large">
 
 The extension shows a notification such as:
 
@@ -199,6 +219,11 @@ npm ls --global @birdcc/cli
 
 ## Get help [#help]
 
-- [Report a bug](https://github.com/bird-chinese-community/BIRD-LSP/issues/new?template=bug-report.yml). Add the version of the extension or of `@birdcc/cli`, the VS Code version when the problem is in the editor, the operating system, a minimal configuration that shows the problem, and the log of the `BIRD2 LSP` output channel or the command output.
+- [Report a bug](https://github.com/bird-chinese-community/BIRD-LSP/issues/new?template=bug-report.yml). Add these details:
+  - the version of the extension or of `@birdcc/cli`
+  - the VS Code version, when the problem is in the editor
+  - the operating system
+  - a minimal configuration that shows the problem
+  - the log of the `BIRD2 LSP` output channel, or the command output
 - [Request a feature](https://github.com/bird-chinese-community/BIRD-LSP/issues/new?template=feature-request.yml).
-- Report a security issue privately, not in a public issue: use [private vulnerability reporting](https://github.com/bird-chinese-community/BIRD-LSP/security/advisories/new) or follow the [security policy](https://github.com/bird-chinese-community/BIRD-LSP/blob/main/SECURITY.md).
+- Report a security issue privately, not in a public issue: send an email to `npm-dev@birdcc.link` with a subject such as `[SECURITY][BIRD-LSP] short summary`. The [security policy](https://github.com/bird-chinese-community/BIRD-LSP/blob/main/SECURITY.md) lists the details to include.

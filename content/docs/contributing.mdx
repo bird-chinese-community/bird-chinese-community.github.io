@@ -4,7 +4,9 @@ description: Set up the BIRD-LSP workspace, run its checks, write commits and ch
 icon: Wrench
 ---
 
-[BIRD-LSP](https://github.com/bird-chinese-community/BIRD-LSP) is a pnpm and Turborepo workspace. It contains the TypeScript packages under `packages/@birdcc/` and the Rust crate of `@birdcc/dprint-plugin-bird`. Send pull requests to the `main` branch. BIRD-LSP is licensed under [GPL-3.0-only](https://github.com/bird-chinese-community/BIRD-LSP/blob/main/LICENSE), and the [code of conduct](https://github.com/bird-chinese-community/BIRD-LSP/blob/main/CODE_OF_CONDUCT.md) applies to all project spaces.
+[BIRD-LSP](https://github.com/bird-chinese-community/BIRD-LSP) is a pnpm and Turborepo workspace. It contains the TypeScript packages under `packages/@birdcc/` and the Rust crate of `@birdcc/dprint-plugin-bird`.
+
+Send pull requests to the `main` branch. The license of BIRD-LSP is [GPL-3.0-only](https://github.com/bird-chinese-community/BIRD-LSP/blob/main/LICENSE), and the [code of conduct](https://github.com/bird-chinese-community/BIRD-LSP/blob/main/CODE_OF_CONDUCT.md) applies to all project spaces.
 
 ## Requirements [#requirements]
 
@@ -42,7 +44,7 @@ Run the commands in the repository root. Turborepo runs each task in every packa
 | `pnpm format`                                           | Oxfmt, rewriting files                                                                     |
 | `pnpm --filter @birdcc/parser test`                     | The tests of one package. Replace `@birdcc/parser` with the package name.                  |
 
-The compiled grammar `packages/@birdcc/parser/src/tree-sitter-birdcc.wasm` is committed, and `pnpm build` does not regenerate it. After a change to `grammar.js`, regenerate the grammar and the WebAssembly file as described in [Grammar and WASM](https://github.com/bird-chinese-community/BIRD-LSP/blob/main/packages/@birdcc/parser/README.md#grammar-and-wasm). The WebAssembly build needs Emscripten, Docker or Podman.
+The repository contains the compiled grammar `packages/@birdcc/parser/src/tree-sitter-birdcc.wasm`, and `pnpm build` does not regenerate it. After a change to `grammar.js`, regenerate the grammar and the WebAssembly file as described in [Grammar and WASM](https://github.com/bird-chinese-community/BIRD-LSP/blob/main/packages/@birdcc/parser/README.md#grammar-and-wasm). The WebAssembly build needs Emscripten, Docker or Podman.
 
 ## Git hooks [#hooks]
 
@@ -102,9 +104,24 @@ Issue: https://github.com/bird-chinese-community/BIRD-LSP/issues/NUMBER
 - Package names are the names in the package manifests. `npm:<name>` and `cargo:<name>` select one provider. A change to the Rust formatter can affect both `@birdcc/dprint-plugin-bird` (npm) and `dprint-plugin-bird` (Cargo).
 - Replace `NUMBER` with the pull request and the issue that the change belongs to.
 
-A pull request that changes files under `packages/` needs a changeset. Changes to Markdown files, to `test/` and `test-e2e/` directories and to `LICENSE` files do not need one. The Pre-check job of CI runs `pnpm release:status --since origin/main`. The job fails when a pull request that needs a changeset adds no changeset with a package and a heading.
+A pull request that changes files under `packages/` needs a changeset. Changes to these files do not need one:
 
-`pnpm release:status` prints JSON with an entry for each package that has pending changes: the current and the next version, the bump type, whether the package is published, and the changeset files. It does not change files or publish packages. In the pull request template, list the changeset paths and the related issues under **Changeset**.
+- Markdown files
+- files in `test/` and `test-e2e/` directories
+- `LICENSE` files
+
+The Pre-check job of CI runs `pnpm release:status --since origin/main`. The job fails when a pull request that needs a changeset adds no changeset with a package and a heading.
+
+`pnpm release:status` prints JSON with an entry for each package that has pending changes. Each entry contains:
+
+- the current and the next version
+- the bump type
+- whether the package is published
+- the changeset files
+
+The command does not change files or publish packages.
+
+In the pull request template, list the changeset paths and the related issues under **Changeset**.
 
 ## Releases [#releases]
 
@@ -113,7 +130,11 @@ A pull request that changes files under `packages/` needs a changeset. Changes t
 1. On every push to `main`, the Release workflow (`release.yml`) runs lint, tests, build and type checks, then `pnpm tegami ci`.
 2. When changesets are pending, Tegami opens or updates the pull request **chore(release): Version packages** from the branch `feat/tegami-version-packages`. It contains the new manifest versions, dependency ranges, changelogs, lockfiles and `.tegami/publish-lock.yaml`.
 3. After a maintainer merges that pull request, the next Release run publishes the npm packages recorded in the publish lock.
-4. The workflow Publish VS Code Extensions (`vscode-marketplace.yml`) runs when a push to `main` changes the manifest of the extension or of the extension pack. It waits for the Release check of the same commit, packages both VSIX files, publishes them to the VS Code Marketplace and Open VSX, and creates the GitHub Release `bird2-lsp-v<version>` with both files.
+4. The workflow Publish VS Code Extensions (`vscode-marketplace.yml`) runs when a push to `main` changes the manifest of the extension or of the extension pack. It runs these steps:
+   1. It waits for the Release check of the same commit.
+   2. It packages both VSIX files.
+   3. It publishes them to the VS Code Marketplace and Open VSX.
+   4. It creates the GitHub Release `bird2-lsp-v<version>` with both files.
 
 Arrows show the order of the steps.
 
@@ -126,7 +147,9 @@ flowchart TD
   REL2 -->|"Release check passed"| VSC["vscode-marketplace.yml<br/>Marketplace, Open VSX, GitHub Release"]
 ```
 
-`@birdcc/vscode` and `bird2-extension-pack` are private npm packages. Tegami sets their versions, and the VSIX files are their only published artifacts. The Cargo crate `dprint-plugin-bird` is not published. It supplies the WebAssembly file in `@birdcc/dprint-plugin-bird`.
+`@birdcc/vscode` and `bird2-extension-pack` are private npm packages. Tegami sets their versions, and the VSIX files are their only published artifacts.
+
+The project does not publish the Cargo crate `dprint-plugin-bird`. The crate supplies the WebAssembly file in `@birdcc/dprint-plugin-bird`.
 
 ## Edit this documentation site [#docs-site]
 
@@ -147,4 +170,4 @@ pnpm run format     # oxfmt
 - The build reads the Git history of each page for the contributor list, so it runs in a clone with at least one commit.
 - `.github/workflows/pages.yml` checks the format, runs oxlint and builds the site for every push and pull request. A push to `main` deploys the build to GitHub Pages.
 
-The site code is licensed under the [Apache License 2.0](https://github.com/bird-chinese-community/bird-chinese-community.github.io/blob/main/LICENSE).
+The site code uses the [Apache License 2.0](https://github.com/bird-chinese-community/bird-chinese-community.github.io/blob/main/LICENSE).
